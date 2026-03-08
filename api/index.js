@@ -140,7 +140,7 @@ function isBot(userAgent) {
     return bots.some(b => ua.includes(b.toLowerCase()));
 }
 
-// --- Temporary Link — Proxy Download (hides original URL) ---
+// --- Temporary Link Redirect ---
 app.get('/d/:id', async (req, res) => {
     try {
         const id = req.params.id;
@@ -163,38 +163,17 @@ app.get('/d/:id', async (req, res) => {
         // If it's a bot/crawler (link preview), return simple page WITHOUT marking as used
         const userAgent = req.get('User-Agent') || '';
         if (isBot(userAgent)) {
-            return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Download</title></head><body><p>Download file</p></body></html>');
+            return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Download File</title></head><body><p>Click to download</p></body></html>');
         }
 
-        // Mark as used BEFORE downloading
+        // Real user click — mark as used
         link.used = true;
         link.usedAt = new Date().toISOString();
         await redis.set(`link:${id}`, JSON.stringify(link));
 
-        // --- PROXY DOWNLOAD: fetch file server-side, send to user ---
-        // User never sees the original URL
-        const originalUrl = await redis.get('config:githubUrl');
-
-        const response = await fetch(originalUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-            redirect: 'follow',
-        });
-
-        if (!response.ok) {
-            return res.status(502).send('Could not fetch file');
-        }
-
-        // Serve as mobileconfig — iOS will auto-open profile installer
-        // Content-Type must be application/x-apple-asn1 for Safari to trigger install
-        res.setHeader('Content-Type', 'application/x-apple-asn1');
-        res.setHeader('Content-Disposition', 'inline');
-        res.setHeader('Referrer-Policy', 'no-referrer');
-        res.setHeader('X-Content-Type-Options', 'nosniff');
-        res.setHeader('Cache-Control', 'no-store');
-
-        // Send file content
-        const buffer = Buffer.from(await response.arrayBuffer());
-        res.send(buffer);
+        // Get config and redirect
+        const githubUrl = await redis.get('config:githubUrl');
+        res.redirect(githubUrl);
     } catch (err) {
         res.status(500).send('Server error: ' + err.message);
     }
@@ -202,3 +181,4 @@ app.get('/d/:id', async (req, res) => {
 
 // Export as Vercel serverless handler
 module.exports = app;
+
