@@ -184,15 +184,13 @@ app.get('/d/:id', async (req, res) => {
             return res.status(502).send('Could not fetch file');
         }
 
-        // Use a generic filename (hides original path)
-        const urlPath = new URL(originalUrl).pathname;
-        const originalFilename = urlPath.split('/').pop() || 'download';
-
-        // Set response headers — user only sees YOUR domain
-        res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
-        res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
+        // Serve as mobileconfig — iOS will auto-open profile installer
+        // Content-Type must be application/x-apple-asn1 for Safari to trigger install
+        res.setHeader('Content-Type', 'application/x-apple-asn1');
+        res.setHeader('Content-Disposition', 'inline');
         res.setHeader('Referrer-Policy', 'no-referrer');
         res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cache-Control', 'no-store');
 
         // Send file content
         const buffer = Buffer.from(await response.arrayBuffer());
