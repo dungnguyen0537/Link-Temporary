@@ -1,12 +1,17 @@
 {
     "rewrites": [
         {
-            "source": "/api/(.*)",
+            "source": "/d/:id",
             "destination": "/api"
         },
         {
-            "source": "/d/:id",
+            "source": "/api/(.*)",
             "destination": "/api"
         }
-    ]
+    ],
+    "functions": {
+        "api/index.js": {
+            "maxDuration": 10
+        }
+    }
 }
