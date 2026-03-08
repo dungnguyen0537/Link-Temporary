@@ -1,5 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { Redis } = require('@upstash/redis');
 const path = require('path');
 const fs = require('fs');
@@ -13,9 +14,41 @@ const redis = new Redis({
     token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
 });
 
-// --- API Routes ---
+// Admin password from env var (set in Vercel dashboard)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
-app.get('/api/config', async (req, res) => {
+// --- Auth middleware ---
+async function requireAuth(req, res, next) {
+    const token = req.headers['x-auth-token'];
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+    const valid = await redis.get(`session:${token}`);
+    if (!valid) return res.status(401).json({ error: 'Session expired' });
+
+    next();
+}
+
+// --- Login ---
+app.post('/api/login', async (req, res) => {
+    try {
+        const { password } = req.body;
+        if (password !== ADMIN_PASSWORD) {
+            return res.status(401).json({ error: 'Sai mật khẩu' });
+        }
+
+        // Create session token (valid 24h)
+        const token = crypto.randomBytes(32).toString('hex');
+        await redis.set(`session:${token}`, 'active', { ex: 86400 });
+
+        res.json({ success: true, token });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Protected API Routes ---
+
+app.get('/api/config', requireAuth, async (req, res) => {
     try {
         const githubUrl = await redis.get('config:githubUrl') || '';
         res.json({ githubUrl });
@@ -24,7 +57,7 @@ app.get('/api/config', async (req, res) => {
     }
 });
 
-app.post('/api/config', async (req, res) => {
+app.post('/api/config', requireAuth, async (req, res) => {
     try {
         const { githubUrl } = req.body;
         if (!githubUrl) return res.status(400).json({ error: 'GitHub URL is required' });
@@ -35,7 +68,7 @@ app.post('/api/config', async (req, res) => {
     }
 });
 
-app.post('/api/create-link', async (req, res) => {
+app.post('/api/create-link', requireAuth, async (req, res) => {
     try {
         const githubUrl = await redis.get('config:githubUrl');
         if (!githubUrl) {
@@ -60,7 +93,7 @@ app.post('/api/create-link', async (req, res) => {
     }
 });
 
-app.get('/api/links', async (req, res) => {
+app.get('/api/links', requireAuth, async (req, res) => {
     try {
         const linkIds = await redis.lrange('links', 0, -1) || [];
         const links = [];
@@ -77,7 +110,7 @@ app.get('/api/links', async (req, res) => {
     }
 });
 
-app.delete('/api/links/:id', async (req, res) => {
+app.delete('/api/links/:id', requireAuth, async (req, res) => {
     try {
         const id = req.params.id;
         await redis.del(`link:${id}`);
@@ -88,7 +121,7 @@ app.delete('/api/links/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/links-used', async (req, res) => {
+app.delete('/api/links-used', requireAuth, async (req, res) => {
     try {
         const linkIds = await redis.lrange('links', 0, -1) || [];
         for (const id of linkIds) {
@@ -124,10 +157,7 @@ function isBot(userAgent) {
     return bots.some(b => ua.includes(b.toLowerCase()));
 }
 
-// ============================================================
-// STEP 1: User clicks /d/:id → marks as used → shows loading
-//         page that auto-redirects to /d/:id/install.mobileconfig
-// ============================================================
+// --- Step 1: /d/:id → intermediate page → redirect to .mobileconfig ---
 app.get('/d/:id', async (req, res) => {
     try {
         const id = req.params.id;
@@ -145,20 +175,16 @@ app.get('/d/:id', async (req, res) => {
             return res.status(410).send(html);
         }
 
-        // Bot → don't consume
         const userAgent = req.get('User-Agent') || '';
         if (isBot(userAgent)) {
             return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Download</title></head><body><p>Download file</p></body></html>');
         }
 
-        // Mark as used + set a short-lived token (60s) for the file download
         link.used = true;
         link.usedAt = new Date().toISOString();
         await redis.set(`link:${id}`, JSON.stringify(link));
         await redis.set(`download:${id}`, 'allowed', { ex: 60 });
 
-        // Serve an intermediate page that redirects to the .mobileconfig URL
-        // Safari needs to see .mobileconfig extension to trigger profile installation
         res.send(`<!DOCTYPE html>
 <html>
 <head>
@@ -182,7 +208,6 @@ app.get('/d/:id', async (req, res) => {
     <p>Đang tải hồ sơ cấu hình...</p>
   </div>
   <script>
-    // Redirect to .mobileconfig URL so Safari triggers profile installer
     setTimeout(function() {
       window.location.href = '/d/${id}/install.mobileconfig';
     }, 500);
@@ -194,26 +219,19 @@ app.get('/d/:id', async (req, res) => {
     }
 });
 
-// ============================================================
-// STEP 2: /d/:id/install.mobileconfig → proxy download the file
-//         Safari sees .mobileconfig extension → opens profile installer
-//         Only works within 60s of step 1 (download token)
-// ============================================================
+// --- Step 2: /d/:id/install.mobileconfig → proxy download ---
 app.get('/d/:id/install.mobileconfig', async (req, res) => {
     try {
         const id = req.params.id;
 
-        // Check download token (set in step 1, expires after 60s)
         const allowed = await redis.get(`download:${id}`);
         if (!allowed) {
             const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'expired.html'), 'utf-8');
             return res.status(410).send(html);
         }
 
-        // Delete download token (one-time use)
         await redis.del(`download:${id}`);
 
-        // Proxy download — fetch from original URL, serve to user
         const originalUrl = await redis.get('config:githubUrl');
         const response = await fetch(originalUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0' },
@@ -224,7 +242,6 @@ app.get('/d/:id/install.mobileconfig', async (req, res) => {
             return res.status(502).send('Could not fetch file');
         }
 
-        // Correct headers for .mobileconfig → iOS automatically installs profile
         res.setHeader('Content-Type', 'application/x-apple-asn1');
         res.setHeader('Referrer-Policy', 'no-referrer');
         res.setHeader('Cache-Control', 'no-store, no-cache');
