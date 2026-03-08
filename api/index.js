@@ -140,7 +140,7 @@ function isBot(userAgent) {
     return bots.some(b => ua.includes(b.toLowerCase()));
 }
 
-// --- Temporary Link Redirect ---
+// --- Temporary Link — Proxy Download (hides original URL) ---
 app.get('/d/:id', async (req, res) => {
     try {
         const id = req.params.id;
@@ -163,17 +163,40 @@ app.get('/d/:id', async (req, res) => {
         // If it's a bot/crawler (link preview), return simple page WITHOUT marking as used
         const userAgent = req.get('User-Agent') || '';
         if (isBot(userAgent)) {
-            return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Download File</title></head><body><p>Click to download</p></body></html>');
+            return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Download</title></head><body><p>Download file</p></body></html>');
         }
 
-        // Real user click — mark as used
+        // Mark as used BEFORE downloading
         link.used = true;
         link.usedAt = new Date().toISOString();
         await redis.set(`link:${id}`, JSON.stringify(link));
 
-        // Get config and redirect
-        const githubUrl = await redis.get('config:githubUrl');
-        res.redirect(githubUrl);
+        // --- PROXY DOWNLOAD: fetch file server-side, send to user ---
+        // User never sees the original URL
+        const originalUrl = await redis.get('config:githubUrl');
+
+        const response = await fetch(originalUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            redirect: 'follow',
+        });
+
+        if (!response.ok) {
+            return res.status(502).send('Could not fetch file');
+        }
+
+        // Use a generic filename (hides original path)
+        const urlPath = new URL(originalUrl).pathname;
+        const originalFilename = urlPath.split('/').pop() || 'download';
+
+        // Set response headers — user only sees YOUR domain
+        res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+
+        // Send file content
+        const buffer = Buffer.from(await response.arrayBuffer());
+        res.send(buffer);
     } catch (err) {
         res.status(500).send('Server error: ' + err.message);
     }
