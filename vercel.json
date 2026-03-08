@@ -1,6 +1,10 @@
 {
     "rewrites": [
         {
+            "source": "/d/:id/install.mobileconfig",
+            "destination": "/api"
+        },
+        {
             "source": "/d/:id",
             "destination": "/api"
         },
