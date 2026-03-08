@@ -1,0 +1,17 @@
+{
+  "githubUrl": "https://www.dshinee.site/DNSByDShinee.mobileconfig",
+  "links": [
+    {
+      "id": "0c5108b4",
+      "createdAt": "2026-03-08T11:53:23.261Z",
+      "used": true,
+      "usedAt": "2026-03-08T11:53:30.166Z"
+    },
+    {
+      "id": "e1f03570",
+      "createdAt": "2026-03-08T11:52:03.262Z",
+      "used": false,
+      "usedAt": null
+    }
+  ]
+}
