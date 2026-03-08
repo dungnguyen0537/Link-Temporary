@@ -118,6 +118,28 @@ app.delete('/api/links-used', async (req, res) => {
     }
 });
 
+// --- Bot detection (link preview bots from messaging apps) ---
+function isBot(userAgent) {
+    if (!userAgent) return false;
+    const bots = [
+        'facebookexternalhit', 'Facebot', 'FacebookBot',
+        'ZaloBot', 'ZaloMessageBot',
+        'TelegramBot',
+        'WhatsApp',
+        'Viber',
+        'Discordbot',
+        'Twitterbot',
+        'Slackbot', 'Slack-ImgProxy',
+        'LinkedInBot',
+        'Googlebot', 'bingbot',
+        'PetalBot', 'Bytespider',
+        'bot', 'crawler', 'spider', 'preview',
+        'curl', 'wget', 'python-requests', 'HeadlessChrome',
+    ];
+    const ua = userAgent.toLowerCase();
+    return bots.some(b => ua.includes(b.toLowerCase()));
+}
+
 // --- Temporary Link Redirect ---
 app.get('/d/:id', async (req, res) => {
     try {
@@ -138,7 +160,13 @@ app.get('/d/:id', async (req, res) => {
             return res.status(410).send(html);
         }
 
-        // Mark as used
+        // If it's a bot/crawler (link preview), return simple page WITHOUT marking as used
+        const userAgent = req.get('User-Agent') || '';
+        if (isBot(userAgent)) {
+            return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Download File</title></head><body><p>Click to download</p></body></html>');
+        }
+
+        // Real user click — mark as used
         link.used = true;
         link.usedAt = new Date().toISOString();
         await redis.set(`link:${id}`, JSON.stringify(link));
