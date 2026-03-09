@@ -269,6 +269,32 @@ app.post('/api/generator/:gid/create-link', async (req, res) => {
     }
 });
 
+// Get links created by a generator (public — no auth)
+app.get('/api/generator/:gid/links', async (req, res) => {
+    try {
+        const gid = req.params.gid;
+        const raw = await redis.get(`generator:${gid}`);
+        if (!raw) {
+            return res.status(404).json({ error: 'Generator not found' });
+        }
+
+        const linkIds = await redis.lrange('links', 0, -1) || [];
+        const links = [];
+        for (const id of linkIds) {
+            const linkRaw = await redis.get(`link:${id}`);
+            if (linkRaw) {
+                const link = typeof linkRaw === 'string' ? JSON.parse(linkRaw) : linkRaw;
+                if (link.generatorId === gid) {
+                    links.push(link);
+                }
+            }
+        }
+        res.json({ links });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Serve generator page (public)
 app.get('/g/:gid', async (req, res) => {
     try {
