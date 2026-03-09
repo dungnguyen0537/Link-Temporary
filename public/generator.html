@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Phụ — Tạo Link Tạm</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .quota-bar {
+            margin-top: 18px;
+            margin-bottom: 8px;
+        }
+
+        .quota-bar-track {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .quota-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #6c5ce7, #00cec9);
+            transition: width 0.5s ease;
+        }
+
+        .quota-bar-fill.exhausted {
+            background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+        }
+
+        .quota-text {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+            text-align: center;
+        }
+
+        .quota-text strong {
+            color: var(--green);
+        }
+
+        .quota-text.exhausted strong {
+            color: var(--red);
+        }
+
+        .gen-links-list {
+            margin-top: 16px;
+        }
+
+        .gen-link-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            animation: slideDown 0.3s ease;
+        }
+
+        .gen-link-item input {
+            flex: 1;
+            font-family: 'Courier New', monospace;
+            font-size: 0.82rem;
+            color: var(--green);
+            background: transparent;
+            border: none;
+            outline: none;
+        }
+
+        .gen-link-item .btn-outline {
+            padding: 6px 10px;
+            font-size: 0.8rem;
+        }
+
+        .exhausted-msg {
+            text-align: center;
+            padding: 20px;
+            color: var(--red);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-glow glow-1"></div>
+    <div class="bg-glow glow-2"></div>
+
+    <div class="container" id="generator-page">
+        <header>
+            <div class="logo">🔗</div>
+            <h1>Link Phụ</h1>
+            <p class="subtitle">Tạo link download tạm thời — tự huỷ sau 1 lần click</p>
+        </header>
+
+        <!-- Quota -->
+        <section class="card" id="quota-section">
+            <h2>📊 Số Lượt Còn Lại</h2>
+            <div class="quota-bar">
+                <div class="quota-bar-track">
+                    <div class="quota-bar-fill" id="quota-fill" style="width: 100%"></div>
+                </div>
+            </div>
+            <p class="quota-text" id="quota-text">Đang tải...</p>
+        </section>
+
+        <!-- Create Link -->
+        <section class="card" id="gen-create-section">
+            <h2>🚀 Tạo Link Tạm</h2>
+            <button id="gen-create-btn" class="btn btn-accent btn-lg">
+                <span class="btn-icon">+</span> Lấy Link Mới
+            </button>
+            <div id="gen-links-list" class="gen-links-list"></div>
+        </section>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script>
+        const API = '';
+        const gid = window.location.pathname.split('/g/')[1];
+        let genInfo = null;
+        const createdLinks = [];
+
+        const quotaFill = document.getElementById('quota-fill');
+        const quotaText = document.getElementById('quota-text');
+        const createBtn = document.getElementById('gen-create-btn');
+        const linksList = document.getElementById('gen-links-list');
+
+        // Load generator info
+        async function loadInfo() {
+            try {
+                const res = await fetch(`${API}/api/generator/${gid}/info`);
+                if (!res.ok) {
+                    document.getElementById('generator-page').innerHTML =
+                        '<div style="text-align:center;padding:60px 20px;"><div style="font-size:56px;margin-bottom:16px;">⏳</div><h1 style="background:linear-gradient(135deg,#ff6b6b,#ee5a24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Link không tồn tại</h1><p style="color:#8888aa;margin-top:10px;">Link phụ này không tồn tại hoặc đã bị xoá.</p></div>';
+                    return;
+                }
+                genInfo = await res.json();
+                updateQuota();
+            } catch (err) {
+                quotaText.textContent = '❌ Lỗi kết nối';
+            }
+        }
+
+        function updateQuota() {
+            const remaining = genInfo.remaining;
+            const pct = (remaining / genInfo.maxLinks) * 100;
+            quotaFill.style.width = pct + '%';
+
+            if (remaining <= 0) {
+                quotaFill.classList.add('exhausted');
+                quotaText.classList.add('exhausted');
+                quotaText.innerHTML = `<strong>Đã hết lượt!</strong> (${genInfo.usedLinks}/${genInfo.maxLinks} đã dùng)`;
+                createBtn.disabled = true;
+                createBtn.textContent = '🚫 Đã hết lượt tạo link';
+                createBtn.style.opacity = '0.5';
+            } else {
+                quotaFill.classList.remove('exhausted');
+                quotaText.classList.remove('exhausted');
+                quotaText.innerHTML = `Còn <strong>${remaining}</strong> lượt (${genInfo.usedLinks}/${genInfo.maxLinks} đã dùng)`;
+                createBtn.disabled = false;
+                createBtn.innerHTML = '<span class="btn-icon">+</span> Lấy Link Mới';
+                createBtn.style.opacity = '1';
+            }
+        }
+
+        // Create link
+        createBtn.addEventListener('click', async () => {
+            if (!genInfo || genInfo.remaining <= 0) return;
+
+            createBtn.disabled = true;
+            createBtn.textContent = '⏳ Đang tạo...';
+
+            try {
+                const res = await fetch(`${API}/api/generator/${gid}/create-link`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    showToast(`⚠️ ${data.error}`);
+                    return;
+                }
+
+                createdLinks.unshift(data.fullUrl);
+                genInfo.usedLinks += 1;
+                genInfo.remaining = data.remaining;
+                updateQuota();
+                renderLinks();
+
+                await navigator.clipboard.writeText(data.fullUrl);
+                showToast('📋 Đã tạo và copy link!');
+            } catch (err) {
+                showToast('❌ Lỗi tạo link');
+            }
+        });
+
+        function renderLinks() {
+            linksList.innerHTML = createdLinks.map(url => `
+                <div class="gen-link-item">
+                    <input type="text" value="${url}" readonly />
+                    <button class="btn btn-outline" onclick="copyLink(this, '${url}')">📋</button>
+                </div>
+            `).join('');
+        }
+
+        async function copyLink(btn, url) {
+            await navigator.clipboard.writeText(url);
+            showToast('📋 Đã copy link!');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('hidden');
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.classList.add('hidden'), 300);
+            }, 2000);
+        }
+
+        // Init
+        loadInfo();
+    </script>
+</body>
+
+</html>
