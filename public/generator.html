@@ -117,7 +117,35 @@
             <button id="gen-create-btn" class="btn btn-accent btn-lg">
                 <span class="btn-icon">+</span> Lấy Link Mới
             </button>
-            <div id="gen-links-list" class="gen-links-list"></div>
+            <div id="new-link-result" class="new-link-result hidden" style="margin-top: 16px;">
+                <div class="link-display">
+                    <input type="text" id="new-link-url" readonly />
+                    <button id="copy-new-link-btn" class="btn btn-outline" title="Copy">📋</button>
+                </div>
+                <p class="link-hint" id="new-link-hint">Link đã được copy vào clipboard!</p>
+            </div>
+        </section>
+
+        <!-- Links History Table -->
+        <section class="card" id="gen-history-section">
+            <h2>📋 Lịch Sử Link Đã Tạo</h2>
+            <div class="table-wrapper">
+                <table id="gen-links-table">
+                    <thead>
+                        <tr>
+                            <th>Link</th>
+                            <th>Trạng thái</th>
+                            <th>Tạo lúc</th>
+                            <th>Dùng lúc</th>
+                        </tr>
+                    </thead>
+                    <tbody id="gen-links-body">
+                    </tbody>
+                </table>
+                <div id="gen-empty-state" class="empty-state">
+                    <p>Chưa có link nào. Nhấn <strong>"Lấy Link Mới"</strong> để tạo!</p>
+                </div>
+            </div>
         </section>
     </div>
 
@@ -127,12 +155,16 @@
         const API = '';
         const gid = window.location.pathname.split('/g/')[1];
         let genInfo = null;
-        const createdLinks = [];
 
         const quotaFill = document.getElementById('quota-fill');
         const quotaText = document.getElementById('quota-text');
         const createBtn = document.getElementById('gen-create-btn');
-        const linksList = document.getElementById('gen-links-list');
+        const newLinkResult = document.getElementById('new-link-result');
+        const newLinkUrl = document.getElementById('new-link-url');
+        const copyNewLinkBtn = document.getElementById('copy-new-link-btn');
+        const genLinksTable = document.getElementById('gen-links-table');
+        const genLinksBody = document.getElementById('gen-links-body');
+        const genEmptyState = document.getElementById('gen-empty-state');
 
         // Load generator info
         async function loadInfo() {
@@ -145,6 +177,7 @@
                 }
                 genInfo = await res.json();
                 updateQuota();
+                loadHistory();
             } catch (err) {
                 quotaText.textContent = '❌ Lỗi kết nối';
             }
@@ -172,6 +205,45 @@
             }
         }
 
+        // Load link history
+        async function loadHistory() {
+            try {
+                const res = await fetch(`${API}/api/generator/${gid}/links`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                if (!data.links || data.links.length === 0) {
+                    genLinksTable.style.display = 'none';
+                    genEmptyState.classList.remove('hidden');
+                    return;
+                }
+
+                genLinksTable.style.display = 'table';
+                genEmptyState.classList.add('hidden');
+
+                genLinksBody.innerHTML = data.links.map(link => {
+                    const baseUrl = window.location.origin;
+                    const fullUrl = `${baseUrl}/d/${link.id}`;
+                    const createdAt = formatTime(link.createdAt);
+                    const usedAt = link.usedAt ? formatTime(link.usedAt) : '—';
+                    const statusBadge = link.used
+                        ? '<span class="badge badge-used">Đã dùng</span>'
+                        : '<span class="badge badge-active">Sẵn sàng</span>';
+
+                    return `
+                    <tr>
+                        <td class="link-cell" onclick="copyToClipboard('${fullUrl}')" title="Click để copy">/d/${link.id}</td>
+                        <td>${statusBadge}</td>
+                        <td class="time-cell">${createdAt}</td>
+                        <td class="time-cell">${usedAt}</td>
+                    </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error('Error loading history:', err);
+            }
+        }
+
         // Create link
         createBtn.addEventListener('click', async () => {
             if (!genInfo || genInfo.remaining <= 0) return;
@@ -191,31 +263,42 @@
                     return;
                 }
 
-                createdLinks.unshift(data.fullUrl);
+                // Show new link result
+                newLinkUrl.value = data.fullUrl;
+                newLinkResult.classList.remove('hidden');
+
                 genInfo.usedLinks += 1;
                 genInfo.remaining = data.remaining;
                 updateQuota();
-                renderLinks();
+                loadHistory();
 
                 await navigator.clipboard.writeText(data.fullUrl);
+                const hint = document.getElementById('new-link-hint');
+                hint.classList.add('show');
+                setTimeout(() => hint.classList.remove('show'), 2000);
                 showToast('📋 Đã tạo và copy link!');
             } catch (err) {
                 showToast('❌ Lỗi tạo link');
             }
         });
 
-        function renderLinks() {
-            linksList.innerHTML = createdLinks.map(url => `
-                <div class="gen-link-item">
-                    <input type="text" value="${url}" readonly />
-                    <button class="btn btn-outline" onclick="copyLink(this, '${url}')">📋</button>
-                </div>
-            `).join('');
+        // Copy new link
+        copyNewLinkBtn.addEventListener('click', async () => {
+            await navigator.clipboard.writeText(newLinkUrl.value);
+            showToast('📋 Đã copy!');
+        });
+
+        // Copy helper  
+        async function copyToClipboard(text) {
+            await navigator.clipboard.writeText(text);
+            showToast('📋 Đã copy link!');
         }
 
-        async function copyLink(btn, url) {
-            await navigator.clipboard.writeText(url);
-            showToast('📋 Đã copy link!');
+        // Time format
+        function formatTime(isoStr) {
+            const d = new Date(isoStr);
+            const pad = n => String(n).padStart(2, '0');
+            return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
         }
 
         function showToast(msg) {
