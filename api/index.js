@@ -373,6 +373,53 @@ const BLOCKED_DESKTOP_HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
+// --- Safari detection ---
+function isSafari(userAgent) {
+    if (!userAgent) return false;
+    const ua = userAgent.toLowerCase();
+    // Safari contains "safari" but NOT chrome/crios/fxios/opios/edgios/etc.
+    const nonSafari = ['chrome', 'crios', 'fxios', 'opios', 'edgios', 'edg/', 'opr/', 'opera', 'firefox', 'samsungbrowser', 'ucbrowser', 'brave'];
+    if (!ua.includes('safari')) return false;
+    return !nonSafari.some(b => ua.includes(b));
+}
+
+const BLOCKED_BROWSER_HTML = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Không hỗ trợ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: #0a0a1a; color: #e8e8f0;
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .bg-glow { position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.25; pointer-events: none; }
+    .g1 { width: 400px; height: 400px; background: #ff6b6b; top: -100px; right: -100px; }
+    .g2 { width: 300px; height: 300px; background: #6c5ce7; bottom: -80px; left: -80px; }
+    .box { position: relative; z-index: 1; text-align: center; background: rgba(255,255,255,0.04);
+           border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 50px 40px;
+           max-width: 420px; backdrop-filter: blur(20px); animation: fadeIn 0.5s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .icon { font-size: 56px; margin-bottom: 16px; }
+    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 10px;
+         background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+         -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    p { color: #8888aa; font-size: 0.92rem; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="bg-glow g1"></div>
+  <div class="bg-glow g2"></div>
+  <div class="box">
+    <div class="icon">🧭</div>
+    <h1>Vui lòng dùng Safari</h1>
+    <p>Link này chỉ hỗ trợ trình duyệt <strong style="color:#e8e8f0;">Safari</strong>.<br>Vui lòng mở lại bằng Safari trên iPhone.</p>
+  </div>
+</body>
+</html>`;
+
 // --- Step 1: /d/:id → intermediate page → redirect to .mobileconfig ---
 app.get('/d/:id', async (req, res) => {
     try {
@@ -399,6 +446,11 @@ app.get('/d/:id', async (req, res) => {
         // Block desktop users
         if (isDesktop(userAgent)) {
             return res.status(403).send(BLOCKED_DESKTOP_HTML);
+        }
+
+        // Block non-Safari browsers
+        if (!isSafari(userAgent)) {
+            return res.status(403).send(BLOCKED_BROWSER_HTML);
         }
 
         link.used = true;
