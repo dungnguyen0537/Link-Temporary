@@ -204,6 +204,16 @@ app.post('/api/generator/:gid/create-link', (req, res) => {
   });
 });
 
+// Get links created by a generator (public)
+app.get('/api/generator/:gid/links', (req, res) => {
+  const data = readData();
+  const gen = (data.generators || []).find(g => g.id === req.params.gid);
+  if (!gen) return res.status(404).json({ error: 'Generator not found' });
+
+  const links = data.links.filter(l => l.generatorId === req.params.gid);
+  res.json({ links });
+});
+
 // Serve generator page (public)
 app.get('/g/:gid', (req, res) => {
   const data = readData();
