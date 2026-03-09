@@ -140,6 +140,151 @@ app.delete('/api/links-used', requireAuth, async (req, res) => {
     }
 });
 
+// --- Generator (Link Phụ) API ---
+
+// Create a new generator
+app.post('/api/create-generator', requireAuth, async (req, res) => {
+    try {
+        const githubUrl = await redis.get('config:githubUrl');
+        if (!githubUrl) {
+            return res.status(400).json({ error: 'Please set GitHub URL first' });
+        }
+
+        const { maxLinks } = req.body;
+        if (!maxLinks || maxLinks < 1) {
+            return res.status(400).json({ error: 'maxLinks must be at least 1' });
+        }
+
+        const gid = uuidv4().split('-')[0];
+        const generator = {
+            id: gid,
+            maxLinks: parseInt(maxLinks),
+            usedLinks: 0,
+            createdAt: new Date().toISOString(),
+        };
+
+        await redis.set(`generator:${gid}`, JSON.stringify(generator));
+        await redis.lpush('generators', gid);
+
+        const fullUrl = `https://${req.get('host')}/g/${gid}`;
+        res.json({ success: true, generator, fullUrl });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// List all generators
+app.get('/api/generators', requireAuth, async (req, res) => {
+    try {
+        const gids = await redis.lrange('generators', 0, -1) || [];
+        const generators = [];
+        for (const gid of gids) {
+            const raw = await redis.get(`generator:${gid}`);
+            if (raw) {
+                const gen = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                generators.push(gen);
+            }
+        }
+        res.json({ generators });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete a generator
+app.delete('/api/generators/:gid', requireAuth, async (req, res) => {
+    try {
+        const gid = req.params.gid;
+        await redis.del(`generator:${gid}`);
+        await redis.lrem('generators', 0, gid);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get generator info (public — no auth)
+app.get('/api/generator/:gid/info', async (req, res) => {
+    try {
+        const gid = req.params.gid;
+        const raw = await redis.get(`generator:${gid}`);
+        if (!raw) {
+            return res.status(404).json({ error: 'Generator not found' });
+        }
+        const gen = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        res.json({
+            id: gen.id,
+            maxLinks: gen.maxLinks,
+            usedLinks: gen.usedLinks,
+            remaining: gen.maxLinks - gen.usedLinks,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Create link from generator (public — no auth)
+app.post('/api/generator/:gid/create-link', async (req, res) => {
+    try {
+        const gid = req.params.gid;
+        const raw = await redis.get(`generator:${gid}`);
+        if (!raw) {
+            return res.status(404).json({ error: 'Generator not found' });
+        }
+
+        const gen = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (gen.usedLinks >= gen.maxLinks) {
+            return res.status(403).json({ error: 'Đã hết lượt tạo link' });
+        }
+
+        const githubUrl = await redis.get('config:githubUrl');
+        if (!githubUrl) {
+            return res.status(400).json({ error: 'No source URL configured' });
+        }
+
+        const id = uuidv4().split('-')[0];
+        const link = {
+            id,
+            createdAt: new Date().toISOString(),
+            used: false,
+            usedAt: null,
+            generatorId: gid
+        };
+
+        await redis.set(`link:${id}`, JSON.stringify(link));
+        await redis.lpush('links', id);
+
+        gen.usedLinks += 1;
+        await redis.set(`generator:${gid}`, JSON.stringify(gen));
+
+        const fullUrl = `https://${req.get('host')}/d/${id}`;
+        res.json({
+            success: true,
+            link,
+            fullUrl,
+            remaining: gen.maxLinks - gen.usedLinks,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Serve generator page (public)
+app.get('/g/:gid', async (req, res) => {
+    try {
+        const gid = req.params.gid;
+        const raw = await redis.get(`generator:${gid}`);
+        if (!raw) {
+            const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'expired.html'), 'utf-8');
+            return res.status(410).send(html);
+        }
+        const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'generator.html'), 'utf-8');
+        res.send(html);
+    } catch (err) {
+        res.status(500).send('Server error: ' + err.message);
+    }
+});
+
 // --- Bot detection ---
 function isBot(userAgent) {
     if (!userAgent) return false;
