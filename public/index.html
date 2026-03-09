@@ -96,6 +96,50 @@
                 </div>
             </div>
         </section>
+
+        <!-- Link Phụ Section -->
+        <section class="card" id="generator-section">
+            <h2>🔀 Link Phụ</h2>
+            <p class="section-desc">Tạo link phụ cho phép người khác tự tạo link tạm với số lượt giới hạn.</p>
+            <div class="input-group" style="margin-top: 14px;">
+                <label for="max-links-input">Số lượt tạo link tối đa</label>
+                <div class="input-row">
+                    <input type="number" id="max-links-input" placeholder="Ví dụ: 5" min="1" value="5" />
+                    <button id="create-generator-btn" class="btn btn-primary">
+                        <span class="btn-icon">+</span> Tạo Link Phụ
+                    </button>
+                </div>
+            </div>
+            <div id="new-generator-result" class="new-link-result hidden">
+                <div class="link-display">
+                    <input type="text" id="new-generator-url" readonly />
+                    <button id="copy-generator-btn" class="btn btn-outline" title="Copy">📋</button>
+                </div>
+                <p class="link-hint" id="generator-link-hint">Link đã được copy vào clipboard!</p>
+            </div>
+        </section>
+
+        <!-- Generators Table -->
+        <section class="card" id="generators-list-section">
+            <h2>📋 Danh Sách Link Phụ</h2>
+            <div class="table-wrapper">
+                <table id="generators-table">
+                    <thead>
+                        <tr>
+                            <th>Link Phụ</th>
+                            <th>Quota</th>
+                            <th>Tạo lúc</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="generators-body">
+                    </tbody>
+                </table>
+                <div id="generators-empty" class="empty-state">
+                    <p>Chưa có link phụ nào.</p>
+                </div>
+            </div>
+        </section>
     </div>
 
     <div id="toast" class="toast hidden"></div>
