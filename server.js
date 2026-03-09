@@ -111,6 +111,109 @@ app.get('/d/:id', (req, res) => {
   res.redirect(data.githubUrl);
 });
 
+// --- Generator (Link Phụ) ---
+
+// Create a generator
+app.post('/api/create-generator', (req, res) => {
+  const data = readData();
+  if (!data.githubUrl) {
+    return res.status(400).json({ error: 'Please set GitHub URL first' });
+  }
+
+  const { maxLinks } = req.body;
+  if (!maxLinks || maxLinks < 1) {
+    return res.status(400).json({ error: 'maxLinks must be at least 1' });
+  }
+
+  const gid = uuidv4().split('-')[0];
+  const generator = {
+    id: gid,
+    maxLinks: parseInt(maxLinks),
+    usedLinks: 0,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!data.generators) data.generators = [];
+  data.generators.unshift(generator);
+  writeData(data);
+
+  const fullUrl = `${req.protocol}://${req.get('host')}/g/${gid}`;
+  res.json({ success: true, generator, fullUrl });
+});
+
+// List generators
+app.get('/api/generators', (req, res) => {
+  const data = readData();
+  res.json({ generators: data.generators || [] });
+});
+
+// Delete generator
+app.delete('/api/generators/:gid', (req, res) => {
+  const data = readData();
+  data.generators = (data.generators || []).filter(g => g.id !== req.params.gid);
+  writeData(data);
+  res.json({ success: true });
+});
+
+// Get generator info (public)
+app.get('/api/generator/:gid/info', (req, res) => {
+  const data = readData();
+  const gen = (data.generators || []).find(g => g.id === req.params.gid);
+  if (!gen) return res.status(404).json({ error: 'Generator not found' });
+  res.json({
+    id: gen.id,
+    maxLinks: gen.maxLinks,
+    usedLinks: gen.usedLinks,
+    remaining: gen.maxLinks - gen.usedLinks,
+  });
+});
+
+// Create link from generator (public)
+app.post('/api/generator/:gid/create-link', (req, res) => {
+  const data = readData();
+  const gen = (data.generators || []).find(g => g.id === req.params.gid);
+  if (!gen) return res.status(404).json({ error: 'Generator not found' });
+
+  if (gen.usedLinks >= gen.maxLinks) {
+    return res.status(403).json({ error: 'Đã hết lượt tạo link' });
+  }
+
+  if (!data.githubUrl) {
+    return res.status(400).json({ error: 'No source URL configured' });
+  }
+
+  const id = uuidv4().split('-')[0];
+  const link = {
+    id,
+    createdAt: new Date().toISOString(),
+    used: false,
+    usedAt: null,
+    generatorId: gen.id
+  };
+
+  data.links.unshift(link);
+  gen.usedLinks += 1;
+  writeData(data);
+
+  const fullUrl = `${req.protocol}://${req.get('host')}/d/${id}`;
+  res.json({
+    success: true,
+    link,
+    fullUrl,
+    remaining: gen.maxLinks - gen.usedLinks,
+  });
+});
+
+// Serve generator page (public)
+app.get('/g/:gid', (req, res) => {
+  const data = readData();
+  const gen = (data.generators || []).find(g => g.id === req.params.gid);
+  if (!gen) {
+    return res.sendFile(path.join(__dirname, 'public', 'expired.html'));
+  }
+  res.sendFile(path.join(__dirname, 'public', 'generator.html'));
+});
+
 app.listen(PORT, () => {
   console.log(`🔗 Link Tạm Server running at http://localhost:${PORT}`);
 });
