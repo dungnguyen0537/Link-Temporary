@@ -9,6 +9,10 @@
             "destination": "/api"
         },
         {
+            "source": "/g/:gid",
+            "destination": "/api"
+        },
+        {
             "source": "/api/(.*)",
             "destination": "/api"
         }
