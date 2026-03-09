@@ -21,6 +21,16 @@ const emptyState = document.getElementById('empty-state');
 const clearUsedBtn = document.getElementById('clear-used-btn');
 const linksTable = document.getElementById('links-table');
 
+// Generator DOM
+const maxLinksInput = document.getElementById('max-links-input');
+const createGeneratorBtn = document.getElementById('create-generator-btn');
+const newGeneratorResult = document.getElementById('new-generator-result');
+const newGeneratorUrl = document.getElementById('new-generator-url');
+const copyGeneratorBtn = document.getElementById('copy-generator-btn');
+const generatorsBody = document.getElementById('generators-body');
+const generatorsTable = document.getElementById('generators-table');
+const generatorsEmpty = document.getElementById('generators-empty');
+
 // --- Auth helpers ---
 function authHeaders() {
     return { 'Content-Type': 'application/json', 'x-auth-token': authToken };
@@ -59,6 +69,7 @@ function showAdmin() {
     adminScreen.classList.remove('hidden');
     loadConfig();
     loadLinks();
+    loadGenerators();
 }
 
 function logout() {
@@ -227,6 +238,96 @@ clearUsedBtn.addEventListener('click', async () => {
     loadLinks();
     showToast('🗑 Đã xoá các link đã dùng');
 });
+
+// ======== GENERATOR (Link Phụ) ========
+
+// --- Create Generator ---
+createGeneratorBtn.addEventListener('click', async () => {
+    const maxLinks = parseInt(maxLinksInput.value);
+    if (!maxLinks || maxLinks < 1) return showToast('⚠️ Vui lòng nhập số lượt hợp lệ');
+
+    createGeneratorBtn.disabled = true;
+    createGeneratorBtn.textContent = '⏳ Đang tạo...';
+
+    try {
+        const res = await authFetch(`${API}/api/create-generator`, {
+            method: 'POST',
+            body: JSON.stringify({ maxLinks })
+        });
+        if (!res) return;
+        const data = await res.json();
+
+        if (data.error) {
+            showToast(`⚠️ ${data.error}`);
+            return;
+        }
+
+        newGeneratorUrl.value = data.fullUrl;
+        newGeneratorResult.classList.remove('hidden');
+
+        await navigator.clipboard.writeText(data.fullUrl);
+        const hint = document.getElementById('generator-link-hint');
+        hint.classList.add('show');
+        setTimeout(() => hint.classList.remove('show'), 2000);
+
+        loadGenerators();
+    } catch (err) {
+        showToast('❌ Lỗi tạo link phụ');
+    } finally {
+        createGeneratorBtn.disabled = false;
+        createGeneratorBtn.innerHTML = '<span class="btn-icon">+</span> Tạo Link Phụ';
+    }
+});
+
+// --- Copy Generator Link ---
+copyGeneratorBtn.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(newGeneratorUrl.value);
+    const hint = document.getElementById('generator-link-hint');
+    hint.classList.add('show');
+    showToast('📋 Đã copy!');
+    setTimeout(() => hint.classList.remove('show'), 2000);
+});
+
+// --- Load Generators ---
+async function loadGenerators() {
+    const res = await authFetch(`${API}/api/generators`);
+    if (!res) return;
+    const data = await res.json();
+
+    if (!data.generators || data.generators.length === 0) {
+        generatorsTable.style.display = 'none';
+        generatorsEmpty.classList.remove('hidden');
+        return;
+    }
+
+    generatorsTable.style.display = 'table';
+    generatorsEmpty.classList.add('hidden');
+
+    generatorsBody.innerHTML = data.generators.map(gen => {
+        const baseUrl = window.location.origin;
+        const fullUrl = `${baseUrl}/g/${gen.id}`;
+        const createdAt = formatTime(gen.createdAt);
+        const remaining = gen.maxLinks - gen.usedLinks;
+        const quotaClass = remaining <= 0 ? 'badge-used' : 'badge-active';
+        const quotaText = `${gen.usedLinks}/${gen.maxLinks}`;
+
+        return `
+      <tr>
+        <td class="link-cell" onclick="copyToClipboard('${fullUrl}')" title="Click để copy">/g/${gen.id}</td>
+        <td><span class="badge ${quotaClass}">${quotaText}</span></td>
+        <td class="time-cell">${createdAt}</td>
+        <td><button class="btn-delete" onclick="deleteGenerator('${gen.id}')" title="Xoá">✕</button></td>
+      </tr>
+    `;
+    }).join('');
+}
+
+// --- Delete Generator ---
+async function deleteGenerator(gid) {
+    await authFetch(`${API}/api/generators/${gid}`, { method: 'DELETE' });
+    loadGenerators();
+    showToast('🗑 Đã xoá link phụ');
+}
 
 // --- Copy helper ---
 async function copyToClipboard(text) {
