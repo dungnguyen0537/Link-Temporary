@@ -455,6 +455,7 @@ app.get('/d/:id', async (req, res) => {
 
         link.used = true;
         link.usedAt = new Date().toISOString();
+        link.usedByIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
         await redis.set(`link:${id}`, JSON.stringify(link));
         await redis.set(`download:${id}`, 'allowed', { ex: 60 });
 
