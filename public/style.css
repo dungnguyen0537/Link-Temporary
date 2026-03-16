@@ -473,6 +473,14 @@ tbody tr:hover {
   display: none;
 }
 
+/* ===== IP CELL ===== */
+.ip-cell {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  color: #a29bfe;
+  white-space: nowrap;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 600px) {
   .container {
@@ -494,7 +502,9 @@ tbody tr:hover {
   }
 
   th:nth-child(4),
-  td:nth-child(4) {
+  td:nth-child(4),
+  th:nth-child(5),
+  td:nth-child(5) {
     display: none;
   }
 }
