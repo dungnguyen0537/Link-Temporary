@@ -206,6 +206,7 @@ app.get('/d/:id', (req, res) => {
   // Mark as used
   link.used = true;
   link.usedAt = new Date().toISOString();
+  link.usedByIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
   writeData(data);
 
   // Redirect to GitHub
