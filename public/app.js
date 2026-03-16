@@ -209,6 +209,7 @@ async function loadLinks() {
         const fullUrl = `${baseUrl}/d/${link.id}`;
         const createdAt = formatTime(link.createdAt);
         const usedAt = link.usedAt ? formatTime(link.usedAt) : '—';
+        const ipDisplay = link.usedByIp ? `🌐 ${link.usedByIp}` : '—';
         const statusBadge = link.used
             ? '<span class="badge badge-used">Đã dùng</span>'
             : '<span class="badge badge-active">Sẵn sàng</span>';
@@ -219,6 +220,7 @@ async function loadLinks() {
         <td>${statusBadge}</td>
         <td class="time-cell">${createdAt}</td>
         <td class="time-cell">${usedAt}</td>
+        <td class="ip-cell">${ipDisplay}</td>
         <td><button class="btn-delete" onclick="deleteLink('${link.id}')" title="Xoá">✕</button></td>
       </tr>
     `;
