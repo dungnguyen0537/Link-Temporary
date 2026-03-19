@@ -58,6 +58,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// --- Auto-reload on tab focus / visibility change ---
+let _lastReload = 0;
+function autoReloadData() {
+    if (!authToken) return;
+    const now = Date.now();
+    if (now - _lastReload < 2000) return; // debounce 2s
+    _lastReload = now;
+    loadLinks();
+    loadGenerators();
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') autoReloadData();
+});
+window.addEventListener('focus', autoReloadData);
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted) autoReloadData();
+});
+
 // --- Login ---
 function showLogin() {
     loginScreen.classList.remove('hidden');
@@ -186,45 +205,48 @@ copyLinkBtn.addEventListener('click', async () => {
 });
 
 // --- Load Links ---
+let _loadingLinks = false;
 async function loadLinks() {
-    const res = await authFetch(`${API}/api/links`);
-    if (!res) return;
-    const data = await res.json();
+    if (_loadingLinks) return;
+    _loadingLinks = true;
+    try {
+        const res = await authFetch(`${API}/api/links`);
+        if (!res) return;
+        const data = await res.json();
 
-    if (data.links.length === 0) {
-        linksTable.style.display = 'none';
-        emptyState.classList.remove('hidden');
-        clearUsedBtn.style.display = 'none';
-        return;
-    }
+        if (data.links.length === 0) {
+            linksTable.style.display = 'none';
+            emptyState.classList.remove('hidden');
+            clearUsedBtn.style.display = 'none';
+            return;
+        }
 
-    linksTable.style.display = 'table';
-    emptyState.classList.add('hidden');
+        linksTable.style.display = 'table';
+        emptyState.classList.add('hidden');
 
-    const hasUsed = data.links.some(l => l.used);
-    clearUsedBtn.style.display = hasUsed ? 'inline-flex' : 'none';
+        const hasUsed = data.links.some(l => l.used);
+        clearUsedBtn.style.display = hasUsed ? 'inline-flex' : 'none';
 
-    linksBody.innerHTML = data.links.map(link => {
+        const frag = document.createDocumentFragment();
         const baseUrl = window.location.origin;
-        const fullUrl = `${baseUrl}/d/${link.id}`;
-        const createdAt = formatTime(link.createdAt);
-        const usedAt = link.usedAt ? formatTime(link.usedAt) : '—';
-        const ipDisplay = link.usedByIp ? `🌐 ${link.usedByIp}` : '—';
-        const statusBadge = link.used
-            ? '<span class="badge badge-used">Đã dùng</span>'
-            : '<span class="badge badge-active">Sẵn sàng</span>';
-
-        return `
-      <tr>
-        <td class="link-cell" onclick="copyToClipboard('${fullUrl}')" title="Click để copy">/d/${link.id}</td>
-        <td>${statusBadge}</td>
-        <td class="time-cell">${createdAt}</td>
-        <td class="time-cell">${usedAt}</td>
-        <td class="ip-cell">${ipDisplay}</td>
-        <td><button class="btn-delete" onclick="deleteLink('${link.id}')" title="Xoá">✕</button></td>
-      </tr>
-    `;
-    }).join('');
+        for (const link of data.links) {
+            const fullUrl = `${baseUrl}/d/${link.id}`;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="link-cell" onclick="copyToClipboard('${fullUrl}')" title="Click để copy">/d/${link.id}</td>
+                <td>${link.used ? '<span class="badge badge-used">Đã dùng</span>' : '<span class="badge badge-active">Sẵn sàng</span>'}</td>
+                <td class="time-cell">${formatTime(link.createdAt)}</td>
+                <td class="time-cell">${link.usedAt ? formatTime(link.usedAt) : '—'}</td>
+                <td class="ip-cell">${link.usedByIp ? '🌐 ' + link.usedByIp : '—'}</td>
+                <td><button class="btn-delete" onclick="deleteLink('${link.id}')" title="Xoá">✕</button></td>
+            `;
+            frag.appendChild(tr);
+        }
+        linksBody.innerHTML = '';
+        linksBody.appendChild(frag);
+    } finally {
+        _loadingLinks = false;
+    }
 }
 
 // --- Delete Link ---
@@ -291,37 +313,43 @@ copyGeneratorBtn.addEventListener('click', async () => {
 });
 
 // --- Load Generators ---
+let _loadingGens = false;
 async function loadGenerators() {
-    const res = await authFetch(`${API}/api/generators`);
-    if (!res) return;
-    const data = await res.json();
+    if (_loadingGens) return;
+    _loadingGens = true;
+    try {
+        const res = await authFetch(`${API}/api/generators`);
+        if (!res) return;
+        const data = await res.json();
 
-    if (!data.generators || data.generators.length === 0) {
-        generatorsTable.style.display = 'none';
-        generatorsEmpty.classList.remove('hidden');
-        return;
-    }
+        if (!data.generators || data.generators.length === 0) {
+            generatorsTable.style.display = 'none';
+            generatorsEmpty.classList.remove('hidden');
+            return;
+        }
 
-    generatorsTable.style.display = 'table';
-    generatorsEmpty.classList.add('hidden');
+        generatorsTable.style.display = 'table';
+        generatorsEmpty.classList.add('hidden');
 
-    generatorsBody.innerHTML = data.generators.map(gen => {
+        const frag = document.createDocumentFragment();
         const baseUrl = window.location.origin;
-        const fullUrl = `${baseUrl}/g/${gen.id}`;
-        const createdAt = formatTime(gen.createdAt);
-        const remaining = gen.maxLinks - gen.usedLinks;
-        const quotaClass = remaining <= 0 ? 'badge-used' : 'badge-active';
-        const quotaText = `${gen.usedLinks}/${gen.maxLinks}`;
-
-        return `
-      <tr>
-        <td class="link-cell" onclick="copyToClipboard('${fullUrl}')" title="Click để copy">/g/${gen.id}</td>
-        <td><span class="badge ${quotaClass}">${quotaText}</span></td>
-        <td class="time-cell">${createdAt}</td>
-        <td><button class="btn-delete" onclick="deleteGenerator('${gen.id}')" title="Xoá">✕</button></td>
-      </tr>
-    `;
-    }).join('');
+        for (const gen of data.generators) {
+            const fullUrl = `${baseUrl}/g/${gen.id}`;
+            const remaining = gen.maxLinks - gen.usedLinks;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="link-cell" onclick="copyToClipboard('${fullUrl}')" title="Click để copy">/g/${gen.id}</td>
+                <td><span class="badge ${remaining <= 0 ? 'badge-used' : 'badge-active'}">${gen.usedLinks}/${gen.maxLinks}</span></td>
+                <td class="time-cell">${formatTime(gen.createdAt)}</td>
+                <td><button class="btn-delete" onclick="deleteGenerator('${gen.id}')" title="Xoá">✕</button></td>
+            `;
+            frag.appendChild(tr);
+        }
+        generatorsBody.innerHTML = '';
+        generatorsBody.appendChild(frag);
+    } finally {
+        _loadingGens = false;
+    }
 }
 
 // --- Delete Generator ---
