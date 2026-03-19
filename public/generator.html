@@ -7,6 +7,7 @@
     <title>Link Phụ — Tạo Link Tạm</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="/style.css">
     <style>
         .quota-bar {
@@ -221,24 +222,21 @@
                 genLinksTable.style.display = 'table';
                 genEmptyState.classList.add('hidden');
 
-                genLinksBody.innerHTML = data.links.map(link => {
-                    const baseUrl = window.location.origin;
+                const frag = document.createDocumentFragment();
+                const baseUrl = window.location.origin;
+                for (const link of data.links) {
                     const fullUrl = `${baseUrl}/d/${link.id}`;
-                    const createdAt = formatTime(link.createdAt);
-                    const usedAt = link.usedAt ? formatTime(link.usedAt) : '—';
-                    const statusBadge = link.used
-                        ? '<span class="badge badge-used">Đã dùng</span>'
-                        : '<span class="badge badge-active">Sẵn sàng</span>';
-
-                    return `
-                    <tr>
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
                         <td class="link-cell" onclick="copyToClipboard('${fullUrl}')" title="Click để copy">/d/${link.id}</td>
-                        <td>${statusBadge}</td>
-                        <td class="time-cell">${createdAt}</td>
-                        <td class="time-cell">${usedAt}</td>
-                    </tr>
+                        <td>${link.used ? '<span class="badge badge-used">Đã dùng</span>' : '<span class="badge badge-active">Sẵn sàng</span>'}</td>
+                        <td class="time-cell">${formatTime(link.createdAt)}</td>
+                        <td class="time-cell">${link.usedAt ? formatTime(link.usedAt) : '—'}</td>
                     `;
-                }).join('');
+                    frag.appendChild(tr);
+                }
+                genLinksBody.innerHTML = '';
+                genLinksBody.appendChild(frag);
             } catch (err) {
                 console.error('Error loading history:', err);
             }
@@ -314,6 +312,22 @@
 
         // Init
         loadInfo();
+
+        // --- Auto-reload on tab focus / visibility change ---
+        let _lastReload = 0;
+        function autoReloadGen() {
+            const now = Date.now();
+            if (now - _lastReload < 2000) return;
+            _lastReload = now;
+            loadInfo();
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') autoReloadGen();
+        });
+        window.addEventListener('focus', autoReloadGen);
+        window.addEventListener('pageshow', (e) => {
+            if (e.persisted) autoReloadGen();
+        });
     </script>
 </body>
 
