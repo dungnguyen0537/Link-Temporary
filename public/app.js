@@ -183,7 +183,7 @@ createLinkBtn.addEventListener('click', async () => {
         newLinkUrl.value = data.fullUrl;
         newLinkResult.classList.remove('hidden');
 
-        await navigator.clipboard.writeText(data.fullUrl);
+        try { await navigator.clipboard.writeText(data.fullUrl); } catch {}
         document.querySelector('.link-hint').classList.add('show');
         setTimeout(() => document.querySelector('.link-hint').classList.remove('show'), 2000);
 
@@ -198,7 +198,7 @@ createLinkBtn.addEventListener('click', async () => {
 
 // --- Copy ---
 copyLinkBtn.addEventListener('click', async () => {
-    await navigator.clipboard.writeText(newLinkUrl.value);
+    try { await navigator.clipboard.writeText(newLinkUrl.value); } catch {}
     document.querySelector('.link-hint').classList.add('show');
     showToast('📋 Đã copy!');
     setTimeout(() => document.querySelector('.link-hint').classList.remove('show'), 2000);
@@ -214,7 +214,7 @@ async function loadLinks() {
         if (!res) return;
         const data = await res.json();
 
-        if (data.links.length === 0) {
+        if (!data.links || data.links.length === 0) {
             linksTable.style.display = 'none';
             emptyState.classList.remove('hidden');
             clearUsedBtn.style.display = 'none';
@@ -230,16 +230,19 @@ async function loadLinks() {
         const frag = document.createDocumentFragment();
         const baseUrl = window.location.origin;
         for (const link of data.links) {
-            const fullUrl = `${baseUrl}/d/${link.id}`;
+            const safeId = escapeHtml(link.id);
+            const fullUrl = `${baseUrl}/d/${safeId}`;
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="link-cell" onclick="copyToClipboard('${fullUrl}')" title="Click để copy">/d/${link.id}</td>
+                <td class="link-cell" title="Click để copy">/d/${safeId}</td>
                 <td>${link.used ? '<span class="badge badge-used">Đã dùng</span>' : '<span class="badge badge-active">Sẵn sàng</span>'}</td>
                 <td class="time-cell">${formatTime(link.createdAt)}</td>
                 <td class="time-cell">${link.usedAt ? formatTime(link.usedAt) : '—'}</td>
-                <td class="ip-cell">${link.usedByIp ? '🌐 ' + link.usedByIp : '—'}</td>
-                <td><button class="btn-delete" onclick="deleteLink('${link.id}')" title="Xoá">✕</button></td>
+                <td class="ip-cell">${link.usedByIp ? '🌐 ' + escapeHtml(link.usedByIp) : '—'}</td>
+                <td><button class="btn-delete" title="Xoá">✕</button></td>
             `;
+            tr.querySelector('.link-cell').addEventListener('click', () => copyToClipboard(fullUrl));
+            tr.querySelector('.btn-delete').addEventListener('click', () => deleteLink(safeId));
             frag.appendChild(tr);
         }
         linksBody.innerHTML = '';
@@ -289,7 +292,7 @@ createGeneratorBtn.addEventListener('click', async () => {
         newGeneratorUrl.value = data.fullUrl;
         newGeneratorResult.classList.remove('hidden');
 
-        await navigator.clipboard.writeText(data.fullUrl);
+        try { await navigator.clipboard.writeText(data.fullUrl); } catch {}
         const hint = document.getElementById('generator-link-hint');
         hint.classList.add('show');
         setTimeout(() => hint.classList.remove('show'), 2000);
@@ -305,7 +308,7 @@ createGeneratorBtn.addEventListener('click', async () => {
 
 // --- Copy Generator Link ---
 copyGeneratorBtn.addEventListener('click', async () => {
-    await navigator.clipboard.writeText(newGeneratorUrl.value);
+    try { await navigator.clipboard.writeText(newGeneratorUrl.value); } catch {}
     const hint = document.getElementById('generator-link-hint');
     hint.classList.add('show');
     showToast('📋 Đã copy!');
@@ -334,15 +337,18 @@ async function loadGenerators() {
         const frag = document.createDocumentFragment();
         const baseUrl = window.location.origin;
         for (const gen of data.generators) {
-            const fullUrl = `${baseUrl}/g/${gen.id}`;
+            const safeId = escapeHtml(gen.id);
+            const fullUrl = `${baseUrl}/g/${safeId}`;
             const remaining = gen.maxLinks - gen.usedLinks;
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="link-cell" onclick="copyToClipboard('${fullUrl}')" title="Click để copy">/g/${gen.id}</td>
+                <td class="link-cell" title="Click để copy">/g/${safeId}</td>
                 <td><span class="badge ${remaining <= 0 ? 'badge-used' : 'badge-active'}">${gen.usedLinks}/${gen.maxLinks}</span></td>
                 <td class="time-cell">${formatTime(gen.createdAt)}</td>
-                <td><button class="btn-delete" onclick="deleteGenerator('${gen.id}')" title="Xoá">✕</button></td>
+                <td><button class="btn-delete" title="Xoá">✕</button></td>
             `;
+            tr.querySelector('.link-cell').addEventListener('click', () => copyToClipboard(fullUrl));
+            tr.querySelector('.btn-delete').addEventListener('click', () => deleteGenerator(safeId));
             frag.appendChild(tr);
         }
         generatorsBody.innerHTML = '';
@@ -361,8 +367,18 @@ async function deleteGenerator(gid) {
 
 // --- Copy helper ---
 async function copyToClipboard(text) {
-    await navigator.clipboard.writeText(text);
-    showToast('📋 Đã copy link!');
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast('📋 Đã copy link!');
+    } catch {
+        showToast('⚠️ Không thể copy, hãy copy thủ công');
+    }
+}
+
+// --- Escape HTML helper (anti-XSS) ---
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // --- Time format ---
