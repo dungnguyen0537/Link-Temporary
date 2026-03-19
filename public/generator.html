@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Link Phụ — Tạo Link Tạm</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
     <style>
         .quota-bar {
@@ -225,14 +225,16 @@
                 const frag = document.createDocumentFragment();
                 const baseUrl = window.location.origin;
                 for (const link of data.links) {
-                    const fullUrl = `${baseUrl}/d/${link.id}`;
+                    const safeId = escapeHtml(link.id);
+                    const fullUrl = `${baseUrl}/d/${safeId}`;
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td class="link-cell" onclick="copyToClipboard('${fullUrl}')" title="Click để copy">/d/${link.id}</td>
+                        <td class="link-cell" title="Click để copy">/d/${safeId}</td>
                         <td>${link.used ? '<span class="badge badge-used">Đã dùng</span>' : '<span class="badge badge-active">Sẵn sàng</span>'}</td>
                         <td class="time-cell">${formatTime(link.createdAt)}</td>
                         <td class="time-cell">${link.usedAt ? formatTime(link.usedAt) : '—'}</td>
                     `;
+                    tr.querySelector('.link-cell').addEventListener('click', () => copyToClipboard(fullUrl));
                     frag.appendChild(tr);
                 }
                 genLinksBody.innerHTML = '';
@@ -270,13 +272,20 @@
                 updateQuota();
                 loadHistory();
 
-                await navigator.clipboard.writeText(data.fullUrl);
+                try {
+                    await navigator.clipboard.writeText(data.fullUrl);
+                } catch {}
                 const hint = document.getElementById('new-link-hint');
                 hint.classList.add('show');
                 setTimeout(() => hint.classList.remove('show'), 2000);
                 showToast('📋 Đã tạo và copy link!');
             } catch (err) {
                 showToast('❌ Lỗi tạo link');
+            } finally {
+                if (genInfo && genInfo.remaining > 0) {
+                    createBtn.disabled = false;
+                    createBtn.innerHTML = '<span class="btn-icon">+</span> Lấy Link Mới';
+                }
             }
         });
 
@@ -288,8 +297,18 @@
 
         // Copy helper  
         async function copyToClipboard(text) {
-            await navigator.clipboard.writeText(text);
-            showToast('📋 Đã copy link!');
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('📋 Đã copy link!');
+            } catch {
+                showToast('⚠️ Không thể copy, hãy copy thủ công');
+            }
+        }
+
+        // Escape HTML helper (anti-XSS)
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         // Time format
