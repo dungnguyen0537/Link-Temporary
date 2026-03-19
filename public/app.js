@@ -236,6 +236,7 @@ async function loadLinks() {
             tr.innerHTML = `
                 <td class="link-cell" title="Click để copy">/d/${safeId}</td>
                 <td>${link.used ? '<span class="badge badge-used">Đã dùng</span>' : '<span class="badge badge-active">Sẵn sàng</span>'}</td>
+                <td>${link.generatorId ? '<span class="badge badge-source-sub">Phụ</span>' : '<span class="badge badge-source-main">Gốc</span>'}</td>
                 <td class="time-cell">${formatTime(link.createdAt)}</td>
                 <td class="time-cell">${link.usedAt ? formatTime(link.usedAt) : '—'}</td>
                 <td class="ip-cell">${link.usedByIp ? '🌐 ' + escapeHtml(link.usedByIp) : '—'}</td>
