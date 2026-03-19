@@ -41,6 +41,9 @@ body {
   opacity: 0.35;
   pointer-events: none;
   z-index: 0;
+  will-change: transform;
+  contain: layout style paint;
+  transform: translateZ(0);
 }
 
 .glow-1 {
@@ -132,8 +135,11 @@ h1 {
   border-radius: var(--radius);
   padding: 24px;
   margin-bottom: 20px;
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   transition: border-color 0.3s;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 }
 
 .card:hover {
@@ -574,4 +580,21 @@ input[type="number"]:focus {
   color: var(--text-muted);
   font-size: 0.85rem;
   margin-top: -8px;
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .bg-glow {
+    animation: none;
+  }
+
+  .logo {
+    animation: none;
+  }
 }
