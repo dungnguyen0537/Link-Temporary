@@ -7,38 +7,41 @@
     <title>Link Tạm — Quản Lý</title>
     <meta name="description" content="Tạo và quản lý link download tạm thời — tự huỷ sau 1 lần click">
     <meta name="theme-color" content="#07070f">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="style.css">
     <script>
-    // ===== DEVTOOLS PROTECTION =====
+    // ===== DEVTOOLS PROTECTION (Desktop Only) =====
     (function(){
         'use strict';
+        var ua = navigator.userAgent || '';
+        var isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|Opera Mini|IEMobile|Mobile/i.test(ua);
+        if(isMobile) return; // Skip protection on mobile
         // Block right-click
         document.addEventListener('contextmenu', function(e){ e.preventDefault(); }, true);
         // Block key combos
         document.addEventListener('keydown', function(e){
-            // F12
             if(e.key === 'F12' || e.keyCode === 123){ e.preventDefault(); e.stopPropagation(); return false; }
-            // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C / Ctrl+Shift+K
-            if(e.ctrlKey && e.shiftKey && ['I','J','C','K'].includes(e.key.toUpperCase())){ e.preventDefault(); e.stopPropagation(); return false; }
-            // Ctrl+U (view source)
-            if(e.ctrlKey && e.key.toUpperCase() === 'U'){ e.preventDefault(); e.stopPropagation(); return false; }
-            // Ctrl+S (save)
-            if(e.ctrlKey && e.key.toUpperCase() === 'S'){ e.preventDefault(); e.stopPropagation(); return false; }
-            // Ctrl+A (select all) — optional, uncomment if needed
-            // if(e.ctrlKey && e.key.toUpperCase() === 'A'){ e.preventDefault(); return false; }
+            if((e.ctrlKey||e.metaKey) && e.shiftKey && ['I','J','C','K'].includes(e.key.toUpperCase())){ e.preventDefault(); e.stopPropagation(); return false; }
+            if((e.ctrlKey||e.metaKey) && e.key.toUpperCase() === 'U'){ e.preventDefault(); e.stopPropagation(); return false; }
+            if((e.ctrlKey||e.metaKey) && e.key.toUpperCase() === 'S'){ e.preventDefault(); e.stopPropagation(); return false; }
+            if((e.ctrlKey||e.metaKey) && e.key.toUpperCase() === 'P'){ e.preventDefault(); e.stopPropagation(); return false; }
         }, true);
-        // DevTools open detection via size threshold
+        // Block drag
+        document.addEventListener('dragstart', function(e){ e.preventDefault(); }, true);
+        // Block select text
+        document.addEventListener('selectstart', function(e){ e.preventDefault(); }, true);
+        // DevTools open detection
         var _dt = function(){
             var t = window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 160;
             if(t){ document.body.style.display = 'none'; } else { document.body.style.display = ''; }
         };
         window.addEventListener('resize', _dt);
-        // Console trap (makes opening console slow)
-        var _i = setInterval(function(){ console.clear(); }, 200);
-        // Disable debugger trap only on prod
+        setInterval(function(){ console.clear(); }, 200);
     })();
     </script>
 </head>
@@ -254,7 +257,7 @@
 
     <div id="toast" class="toast hidden"></div>
 
-    <script src="app.js"></script>
+    <script src="app.js" defer></script>
 </body>
 
 </html>
