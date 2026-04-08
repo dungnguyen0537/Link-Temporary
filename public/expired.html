@@ -4,97 +4,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Link đã hết hạn</title>
+    <meta name="theme-color" content="#07070f">
+    <title>Link đã hết hạn — Link Tạm</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        *,
-        *::before,
-        *::after {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #07070f;
+            --surface: rgba(255, 255, 255, 0.035);
+            --border: rgba(255, 255, 255, 0.07);
+            --text: #eaeaf4;
+            --text-muted: #6e6e8a;
+            --red: #f06060;
+            --red-bg: rgba(240, 96, 96, 0.1);
+            --red-border: rgba(240, 96, 96, 0.2);
+            --accent: #7c6cf0;
+            --green: #00d2c6;
         }
 
+        html { -webkit-font-smoothing: antialiased; }
+
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: #0a0a1a;
-            color: #e8e8f0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            padding: 20px;
         }
 
         .bg-glow {
             position: fixed;
             border-radius: 50%;
-            filter: blur(120px);
-            opacity: 0.25;
+            filter: blur(140px);
+            opacity: 0.18;
             pointer-events: none;
         }
 
         .g1 {
-            width: 400px;
-            height: 400px;
-            background: #ff6b6b;
-            top: -100px;
-            right: -100px;
+            width: 450px; height: 450px;
+            background: radial-gradient(circle, var(--red) 0%, transparent 70%);
+            top: -120px; right: -120px;
         }
 
         .g2 {
-            width: 300px;
-            height: 300px;
-            background: #6c5ce7;
-            bottom: -80px;
-            left: -80px;
+            width: 350px; height: 350px;
+            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+            bottom: -100px; left: -100px;
         }
 
         .box {
             position: relative;
             z-index: 1;
             text-align: center;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 20px;
-            padding: 50px 40px;
+            padding: 52px 44px;
             max-width: 420px;
-            backdrop-filter: blur(20px);
-            animation: fadeIn 0.5s ease;
+            width: 100%;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)    scale(1); }
         }
 
-        .icon {
-            font-size: 56px;
-            margin-bottom: 16px;
+        .icon-wrap {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--red-bg);
+            border: 1px solid var(--red-border);
+            border-radius: 50%;
+            animation: iconPulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes iconPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(240, 96, 96, 0.2); }
+            50%       { box-shadow: 0 0 0 10px rgba(240, 96, 96, 0); }
+        }
+
+        .icon-wrap svg {
+            width: 34px;
+            height: 34px;
+            stroke: var(--red);
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         h1 {
-            font-size: 1.4rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            font-size: 1.45rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--red), #ee5a24);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
         p {
-            color: #8888aa;
-            font-size: 0.92rem;
-            line-height: 1.6;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .divider {
+            width: 40px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(240,96,96,0.4), transparent);
+            margin: 20px auto;
+            border-radius: 1px;
+        }
+
+        .hint {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        @media (max-width: 480px) {
+            .box { padding: 36px 24px; }
+            h1 { font-size: 1.25rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .box { animation: none; }
+            .icon-wrap { animation: none; }
         }
     </style>
 </head>
@@ -103,9 +156,16 @@
     <div class="bg-glow g1"></div>
     <div class="bg-glow g2"></div>
     <div class="box">
-        <div class="icon">⏳</div>
+        <div class="icon-wrap">
+            <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+            </svg>
+        </div>
         <h1>Link đã hết hạn</h1>
-        <p>Link này đã được sử dụng hoặc không tồn tại.<br>Vui lòng liên hệ người gửi để lấy link mới.</p>
+        <div class="divider"></div>
+        <p>Link này đã được sử dụng hoặc không còn tồn tại.</p>
+        <p class="hint" style="margin-top: 10px;">Vui lòng liên hệ người gửi để nhận link mới.</p>
     </div>
 </body>
 
