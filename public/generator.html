@@ -4,89 +4,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#07070f">
     <title>Link Phụ — Tạo Link Tạm</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
+    <script>
+    // ===== DEVTOOLS PROTECTION =====
+    (function(){
+        'use strict';
+        document.addEventListener('contextmenu', function(e){ e.preventDefault(); }, true);
+        document.addEventListener('keydown', function(e){
+            if(e.key === 'F12' || e.keyCode === 123){ e.preventDefault(); e.stopPropagation(); return false; }
+            if(e.ctrlKey && e.shiftKey && ['I','J','C','K'].includes(e.key.toUpperCase())){ e.preventDefault(); e.stopPropagation(); return false; }
+            if(e.ctrlKey && e.key.toUpperCase() === 'U'){ e.preventDefault(); e.stopPropagation(); return false; }
+            if(e.ctrlKey && e.key.toUpperCase() === 'S'){ e.preventDefault(); e.stopPropagation(); return false; }
+        }, true);
+        var _dt = function(){
+            var t = window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 160;
+            if(t){ document.body.style.display = 'none'; } else { document.body.style.display = ''; }
+        };
+        window.addEventListener('resize', _dt);
+        setInterval(function(){ console.clear(); }, 200);
+    })();
+    </script>
     <style>
-        .quota-bar {
-            margin-top: 18px;
-            margin-bottom: 8px;
+        /* ===== GENERATOR PAGE EXTRAS ===== */
+        .quota-section-inner {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
-        .quota-bar-track {
-            width: 100%;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.06);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .quota-bar-fill {
-            height: 100%;
-            border-radius: 4px;
-            background: linear-gradient(90deg, #6c5ce7, #00cec9);
-            transition: width 0.5s ease;
-        }
-
-        .quota-bar-fill.exhausted {
-            background: linear-gradient(90deg, #ff6b6b, #ee5a24);
-        }
-
-        .quota-text {
-            font-size: 0.82rem;
+        .quota-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
             color: var(--text-muted);
-            margin-top: 6px;
-            text-align: center;
+            margin-top: 4px;
+            font-variant-numeric: tabular-nums;
         }
 
-        .quota-text strong {
+        .quota-stats .remaining-count {
+            font-size: 1.6rem;
+            font-weight: 800;
             color: var(--green);
+            letter-spacing: -0.04em;
+            line-height: 1;
+            transition: color 0.3s;
         }
 
-        .quota-text.exhausted strong {
+        .quota-stats .remaining-count.exhausted {
             color: var(--red);
         }
 
-        .gen-links-list {
-            margin-top: 16px;
+        .quota-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-top: 2px;
         }
 
-        .gen-link-item {
+        .quota-right {
+            text-align: right;
+        }
+
+        .quota-right .used-count {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .quota-right .used-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* History list */
+        .history-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 10px 14px;
-            background: rgba(255, 255, 255, 0.03);
+            gap: 10px;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
             margin-bottom: 8px;
-            animation: slideDown 0.3s ease;
+            animation: slideReveal 0.3s ease both;
+            transition: border-color var(--transition-fast), background var(--transition-fast);
         }
 
-        .gen-link-item input {
+        .history-item:hover {
+            border-color: var(--border-hover);
+            background: var(--surface-hover);
+        }
+
+        .history-item .link-monospace {
             flex: 1;
-            font-family: 'Courier New', monospace;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
             font-size: 0.82rem;
-            color: var(--green);
-            background: transparent;
-            border: none;
-            outline: none;
+            color: var(--accent-light);
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 2px 6px;
+            transition: color var(--transition-fast), background var(--transition-fast);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .gen-link-item .btn-outline {
-            padding: 6px 10px;
-            font-size: 0.8rem;
+        .history-item .link-monospace:hover {
+            color: #c5bfff;
+            background: rgba(124, 108, 240, 0.08);
         }
 
-        .exhausted-msg {
+        .history-item-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .history-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Exhausted overlay */
+        .exhausted-overlay {
             text-align: center;
-            padding: 20px;
-            color: var(--red);
-            font-weight: 600;
-            font-size: 0.95rem;
+            padding: 28px 20px;
         }
+
+        .exhausted-overlay .exhausted-icon {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--red-bg);
+            border: 1px solid var(--red-border);
+            border-radius: 50%;
+        }
+
+        .exhausted-overlay .exhausted-icon svg {
+            width: 28px;
+            height: 28px;
+            stroke: var(--red);
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .exhausted-overlay h3 {
+            color: var(--red);
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .exhausted-overlay p {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            line-height: 1.6;
+        }
+
+        /* Newest link highlight */
+        .newest-link-box {
+            background: var(--green-bg);
+            border: 1px solid var(--green-border);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            margin-top: 16px;
+        }
+
+        @keyframes slideReveal {
+            from { opacity: 0; transform: translateY(-6px) scale(0.99); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        .spin-anim { animation: spinIcon 0.7s linear infinite; }
+        @keyframes spinIcon { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .spin-anim { animation: none; } }
     </style>
 </head>
 
@@ -96,56 +199,87 @@
 
     <div class="container" id="generator-page">
         <header>
-            <div class="logo">🔗</div>
+            <div class="logo">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <polyline points="16 3 21 3 21 8" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="4" y1="20" x2="21" y2="3" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/>
+                    <polyline points="21 16 21 21 16 21" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="4" y1="4" x2="9" y2="9" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
             <h1>Link Phụ</h1>
             <p class="subtitle">Tạo link download tạm thời — tự huỷ sau 1 lần click</p>
         </header>
 
-        <!-- Quota -->
+        <!-- Quota Section -->
         <section class="card" id="quota-section">
-            <h2>📊 Số Lượt Còn Lại</h2>
-            <div class="quota-bar">
-                <div class="quota-bar-track">
-                    <div class="quota-bar-fill" id="quota-fill" style="width: 100%"></div>
+            <h2>
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><line x1="18" y1="20" x2="18" y2="10" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="20" x2="12" y2="4" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="20" x2="6" y2="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+                Số Lượt Còn Lại
+            </h2>
+            <div class="quota-section-inner">
+                <div class="quota-stats">
+                    <div>
+                        <div class="remaining-count" id="remaining-count">—</div>
+                        <div class="quota-label">lượt còn lại</div>
+                    </div>
+                    <div class="quota-right">
+                        <div class="used-count" id="used-count">—</div>
+                        <div class="used-label">đã dùng</div>
+                    </div>
                 </div>
+                <div class="quota-bar">
+                    <div class="quota-bar-track">
+                        <div class="quota-bar-fill" id="quota-fill" style="width: 100%"></div>
+                    </div>
+                </div>
+                <p class="quota-text" id="quota-text">Đang tải...</p>
             </div>
-            <p class="quota-text" id="quota-text">Đang tải...</p>
         </section>
 
         <!-- Create Link -->
         <section class="card" id="gen-create-section">
-            <h2>🚀 Tạo Link Tạm</h2>
+            <h2>
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" stroke="currentColor" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+                Tạo Link Tạm
+            </h2>
             <button id="gen-create-btn" class="btn btn-accent btn-lg">
-                <span class="btn-icon">+</span> Lấy Link Mới
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Lấy Link Mới
             </button>
-            <div id="new-link-result" class="new-link-result hidden" style="margin-top: 16px;">
-                <div class="link-display">
-                    <input type="text" id="new-link-url" readonly />
-                    <button id="copy-new-link-btn" class="btn btn-outline" title="Copy">📋</button>
+
+            <div id="new-link-result" class="new-link-result hidden">
+                <div class="newest-link-box">
+                    <div class="link-display">
+                        <input type="text" id="new-link-url" readonly />
+                        <button id="copy-new-link-btn" class="btn btn-outline" title="Copy link">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="link-hint" id="new-link-hint">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        Đã copy vào clipboard!
+                    </p>
                 </div>
-                <p class="link-hint" id="new-link-hint">Link đã được copy vào clipboard!</p>
             </div>
         </section>
 
-        <!-- Links History Table -->
+        <!-- Link History -->
         <section class="card" id="gen-history-section">
-            <h2>📋 Lịch Sử Link Đã Tạo</h2>
-            <div class="table-wrapper">
-                <table id="gen-links-table">
-                    <thead>
-                        <tr>
-                            <th>Link</th>
-                            <th>Trạng thái</th>
-                            <th>Tạo lúc</th>
-                            <th>Dùng lúc</th>
-                        </tr>
-                    </thead>
-                    <tbody id="gen-links-body">
-                    </tbody>
-                </table>
-                <div id="gen-empty-state" class="empty-state">
-                    <p>Chưa có link nào. Nhấn <strong>"Lấy Link Mới"</strong> để tạo!</p>
-                </div>
+            <h2>
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/><polyline points="12 6 12 12 16 14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Link Đã Tạo
+            </h2>
+            <div id="gen-history-list"></div>
+            <div id="gen-empty-state" class="empty-state">
+                <p>Chưa có link nào. Nhấn <strong>"Lấy Link Mới"</strong> để tạo!</p>
             </div>
         </section>
     </div>
@@ -154,59 +288,82 @@
 
     <script>
         const API = '';
-        const gid = window.location.pathname.split('/g/')[1];
+        const gid = window.location.pathname.split('/g/')[1]?.split('/')[0] || '';
         let genInfo = null;
 
-        const quotaFill = document.getElementById('quota-fill');
-        const quotaText = document.getElementById('quota-text');
-        const createBtn = document.getElementById('gen-create-btn');
-        const newLinkResult = document.getElementById('new-link-result');
-        const newLinkUrl = document.getElementById('new-link-url');
+        // DOM refs
+        const quotaFill      = document.getElementById('quota-fill');
+        const quotaText      = document.getElementById('quota-text');
+        const remainingCount = document.getElementById('remaining-count');
+        const usedCount      = document.getElementById('used-count');
+        const createBtn      = document.getElementById('gen-create-btn');
+        const newLinkResult  = document.getElementById('new-link-result');
+        const newLinkUrl     = document.getElementById('new-link-url');
         const copyNewLinkBtn = document.getElementById('copy-new-link-btn');
-        const genLinksTable = document.getElementById('gen-links-table');
-        const genLinksBody = document.getElementById('gen-links-body');
-        const genEmptyState = document.getElementById('gen-empty-state');
+        const historyList    = document.getElementById('gen-history-list');
+        const emptyState     = document.getElementById('gen-empty-state');
 
-        // Load generator info
+        // --- Load generator info ---
         async function loadInfo() {
             try {
                 const res = await fetch(`${API}/api/generator/${gid}/info`);
                 if (!res.ok) {
-                    document.getElementById('generator-page').innerHTML =
-                        '<div style="text-align:center;padding:60px 20px;"><div style="font-size:56px;margin-bottom:16px;">⏳</div><h1 style="background:linear-gradient(135deg,#ff6b6b,#ee5a24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Link không tồn tại</h1><p style="color:#8888aa;margin-top:10px;">Link phụ này không tồn tại hoặc đã bị xoá.</p></div>';
+                    document.getElementById('generator-page').innerHTML = `
+                        <div style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+                            <div style="text-align:center;padding:40px 20px;">
+                                <div style="width:72px;height:72px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;background:rgba(240,96,96,0.1);border:1px solid rgba(240,96,96,0.2);border-radius:50%;">
+                                    <svg viewBox="0 0 24 24" width="36" height="36" stroke="#f06060" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                </div>
+                                <h1 style="font-size:1.4rem;font-weight:800;background:linear-gradient(135deg,#f06060,#ee5a24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Link không tồn tại</h1>
+                                <p style="color:#6e6e8a;margin-top:10px;font-size:0.9rem;line-height:1.6;">Link phụ này không tồn tại hoặc đã bị xoá.</p>
+                            </div>
+                        </div>`;
                     return;
                 }
                 genInfo = await res.json();
                 updateQuota();
                 loadHistory();
-            } catch (err) {
-                quotaText.textContent = '❌ Lỗi kết nối';
+            } catch {
+                quotaText.textContent = 'Lỗi kết nối';
             }
         }
 
         function updateQuota() {
             const remaining = genInfo.remaining;
-            const pct = (remaining / genInfo.maxLinks) * 100;
+            const total = genInfo.maxLinks;
+            const used  = genInfo.usedLinks;
+            const pct   = total > 0 ? (remaining / total) * 100 : 0;
+
             quotaFill.style.width = pct + '%';
+            remainingCount.textContent = remaining;
+            usedCount.textContent = `${used}/${total}`;
 
             if (remaining <= 0) {
                 quotaFill.classList.add('exhausted');
                 quotaText.classList.add('exhausted');
-                quotaText.innerHTML = `<strong>Đã hết lượt!</strong> (${genInfo.usedLinks}/${genInfo.maxLinks} đã dùng)`;
+                remainingCount.classList.add('exhausted');
+                quotaText.innerHTML = `<strong>Đã hết lượt tạo link!</strong>`;
                 createBtn.disabled = true;
-                createBtn.textContent = '🚫 Đã hết lượt tạo link';
+                createBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    Đã hết lượt tạo link`;
                 createBtn.style.opacity = '0.5';
+                createBtn.style.cursor = 'not-allowed';
             } else {
                 quotaFill.classList.remove('exhausted');
                 quotaText.classList.remove('exhausted');
-                quotaText.innerHTML = `Còn <strong>${remaining}</strong> lượt (${genInfo.usedLinks}/${genInfo.maxLinks} đã dùng)`;
+                remainingCount.classList.remove('exhausted');
+                quotaText.innerHTML = `Còn <strong>${remaining}</strong> / ${total} lượt`;
                 createBtn.disabled = false;
-                createBtn.innerHTML = '<span class="btn-icon">+</span> Lấy Link Mới';
+                createBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Lấy Link Mới`;
                 createBtn.style.opacity = '1';
+                createBtn.style.cursor = 'pointer';
             }
         }
 
-        // Load link history
+        // --- Load history (optimized DOM) ---
         async function loadHistory() {
             try {
                 const res = await fetch(`${API}/api/generator/${gid}/links`);
@@ -214,42 +371,56 @@
                 const data = await res.json();
 
                 if (!data.links || data.links.length === 0) {
-                    genLinksTable.style.display = 'none';
-                    genEmptyState.classList.remove('hidden');
+                    historyList.innerHTML = '';
+                    emptyState.classList.remove('hidden');
                     return;
                 }
 
-                genLinksTable.style.display = 'table';
-                genEmptyState.classList.add('hidden');
-
-                const frag = document.createDocumentFragment();
+                emptyState.classList.add('hidden');
                 const baseUrl = window.location.origin;
+                const frag = document.createDocumentFragment();
+
                 for (const link of data.links) {
-                    const safeId = escapeHtml(link.id);
+                    const safeId  = escapeHtml(link.id);
                     const fullUrl = `${baseUrl}/d/${safeId}`;
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td class="link-cell" title="Click để copy">/d/${safeId}</td>
-                        <td>${link.used ? '<span class="badge badge-used">Đã dùng</span>' : '<span class="badge badge-active">Sẵn sàng</span>'}</td>
-                        <td class="time-cell">${formatTime(link.createdAt)}</td>
-                        <td class="time-cell">${link.usedAt ? formatTime(link.usedAt) : '—'}</td>
+                    const item    = document.createElement('div');
+                    item.className = 'history-item';
+
+                    const statusBadge = link.used
+                        ? `<span class="badge badge-used">Đã dùng</span>`
+                        : `<span class="badge badge-active">Sẵn sàng</span>`;
+
+                    item.innerHTML = `
+                        <span class="link-monospace" role="button" tabindex="0" title="Click để copy">/d/${safeId}</span>
+                        <div class="history-item-right">
+                            ${statusBadge}
+                            <span class="history-time">${formatTime(link.createdAt)}</span>
+                        </div>
                     `;
-                    tr.querySelector('.link-cell').addEventListener('click', () => copyToClipboard(fullUrl));
-                    frag.appendChild(tr);
+
+                    const linkEl = item.querySelector('.link-monospace');
+                    linkEl.addEventListener('click', () => copyToClipboard(fullUrl));
+                    linkEl.addEventListener('keydown', e => {
+                        if (e.key === 'Enter' || e.key === ' ') copyToClipboard(fullUrl);
+                    });
+
+                    frag.appendChild(item);
                 }
-                genLinksBody.innerHTML = '';
-                genLinksBody.appendChild(frag);
+
+                historyList.innerHTML = '';
+                historyList.appendChild(frag);
             } catch (err) {
                 console.error('Error loading history:', err);
             }
         }
 
-        // Create link
+        // --- Create link ---
         createBtn.addEventListener('click', async () => {
             if (!genInfo || genInfo.remaining <= 0) return;
 
+            const origHTML = createBtn.innerHTML;
             createBtn.disabled = true;
-            createBtn.textContent = '⏳ Đang tạo...';
+            createBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" class="spin-anim"><path d="M12 2a10 10 0 0110 10"/></svg> Đang tạo...`;
 
             try {
                 const res = await fetch(`${API}/api/generator/${gid}/create-link`, {
@@ -259,11 +430,10 @@
                 const data = await res.json();
 
                 if (data.error) {
-                    showToast(`⚠️ ${data.error}`);
+                    showToast(data.error, 'warn');
                     return;
                 }
 
-                // Show new link result
                 newLinkUrl.value = data.fullUrl;
                 newLinkResult.classList.remove('hidden');
 
@@ -272,71 +442,77 @@
                 updateQuota();
                 loadHistory();
 
-                try {
-                    await navigator.clipboard.writeText(data.fullUrl);
-                } catch {}
+                // Copy to clipboard
+                await copyToClipboard(data.fullUrl, false);
+
                 const hint = document.getElementById('new-link-hint');
                 hint.classList.add('show');
-                setTimeout(() => hint.classList.remove('show'), 2000);
-                showToast('📋 Đã tạo và copy link!');
-            } catch (err) {
-                showToast('❌ Lỗi tạo link');
+                setTimeout(() => hint.classList.remove('show'), 2500);
+
+                showToast('Đã tạo và copy link!', 'success');
+            } catch {
+                showToast('Lỗi tạo link', 'error');
             } finally {
                 if (genInfo && genInfo.remaining > 0) {
                     createBtn.disabled = false;
-                    createBtn.innerHTML = '<span class="btn-icon">+</span> Lấy Link Mới';
+                    createBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Lấy Link Mới`;
                 }
             }
         });
 
-        // Copy new link
         copyNewLinkBtn.addEventListener('click', async () => {
-            await navigator.clipboard.writeText(newLinkUrl.value);
-            showToast('📋 Đã copy!');
+            await copyToClipboard(newLinkUrl.value);
+            const hint = document.getElementById('new-link-hint');
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 2500);
         });
 
-        // Copy helper  
-        async function copyToClipboard(text) {
+        // --- Helpers ---
+        async function copyToClipboard(text, toast = true) {
             try {
                 await navigator.clipboard.writeText(text);
-                showToast('📋 Đã copy link!');
+                if (toast) showToast('Đã copy link!', 'success');
             } catch {
-                showToast('⚠️ Không thể copy, hãy copy thủ công');
+                if (toast) showToast('Không thể copy — hãy copy thủ công', 'warn');
             }
         }
 
-        // Escape HTML helper (anti-XSS)
         function escapeHtml(str) {
             if (!str) return '';
-            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            return String(str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
-        // Time format
         function formatTime(isoStr) {
-            const d = new Date(isoStr);
-            const pad = n => String(n).padStart(2, '0');
-            return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            if (!isoStr) return '—';
+            try {
+                const d = new Date(isoStr);
+                const pad = n => String(n).padStart(2, '0');
+                return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            } catch { return '—'; }
         }
 
-        function showToast(msg) {
+        let _toastTimer = null;
+        function showToast(msg, type = 'default') {
             const toast = document.getElementById('toast');
+            if (_toastTimer) clearTimeout(_toastTimer);
+            const colors = { success: 'var(--green)', error: 'var(--red)', warn: 'var(--yellow)', default: 'var(--text)' };
+            toast.style.color = colors[type] || colors.default;
             toast.textContent = msg;
             toast.classList.remove('hidden');
             requestAnimationFrame(() => toast.classList.add('show'));
-            setTimeout(() => {
+            _toastTimer = setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => toast.classList.add('hidden'), 300);
-            }, 2000);
+            }, 2500);
         }
 
-        // Init
-        loadInfo();
-
-        // --- Auto-reload on tab focus / visibility change ---
+        // --- Auto-reload on focus ---
         let _lastReload = 0;
         function autoReloadGen() {
             const now = Date.now();
-            if (now - _lastReload < 2000) return;
+            if (now - _lastReload < 3000) return;
             _lastReload = now;
             loadInfo();
         }
@@ -344,9 +520,10 @@
             if (document.visibilityState === 'visible') autoReloadGen();
         });
         window.addEventListener('focus', autoReloadGen);
-        window.addEventListener('pageshow', (e) => {
-            if (e.persisted) autoReloadGen();
-        });
+        window.addEventListener('pageshow', (e) => { if (e.persisted) autoReloadGen(); });
+
+        // --- Init ---
+        loadInfo();
     </script>
 </body>
 
