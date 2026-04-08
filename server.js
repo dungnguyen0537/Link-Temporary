@@ -100,42 +100,31 @@ function isDesktop(userAgent) {
   return !mobileKeywords.some(k => ua.includes(k));
 }
 
+const BLOCKED_CSS = `*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html{-webkit-font-smoothing:antialiased}body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:#07070f;color:#eaeaf4;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:20px}.bg-glow{position:fixed;border-radius:50%;filter:blur(140px);opacity:.18;pointer-events:none}.g1{width:450px;height:450px;background:radial-gradient(circle,#f06060 0%,transparent 70%);top:-120px;right:-120px}.g2{width:350px;height:350px;background:radial-gradient(circle,#7c6cf0 0%,transparent 70%);bottom:-100px;left:-100px}.box{position:relative;z-index:1;text-align:center;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:52px 44px;max-width:420px;width:100%;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);animation:fadeInUp .5s cubic-bezier(.4,0,.2,1) both;box-shadow:0 24px 80px rgba(0,0,0,.4)}@keyframes fadeInUp{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}.icon-wrap{width:72px;height:72px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;border-radius:50%;animation:iconPulse 2.5s ease-in-out infinite}@keyframes iconPulse{0%,100%{box-shadow:0 0 0 0 rgba(240,96,96,.2)}50%{box-shadow:0 0 0 10px rgba(240,96,96,0)}}.icon-wrap svg{width:34px;height:34px;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none}h1{font-size:1.45rem;font-weight:800;margin-bottom:12px;letter-spacing:-.02em;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}p{color:#6e6e8a;font-size:.9rem;line-height:1.7}.divider{width:40px;height:2px;margin:20px auto;border-radius:1px}.hint{font-size:.78rem;color:#6e6e8a;opacity:.7;margin-top:8px}@media(max-width:480px){.box{padding:36px 24px}h1{font-size:1.25rem}}@media(prefers-reduced-motion:reduce){.box,.icon-wrap{animation:none}}`;
+
 const BLOCKED_DESKTOP_HTML = `<!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Không hỗ trợ</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="theme-color" content="#07070f">
+  <title>Chỉ hỗ trợ điện thoại</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', -apple-system, sans-serif; background: #0a0a1a; color: #e8e8f0;
-           min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    .bg-glow { position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.25; pointer-events: none; }
-    .g1 { width: 400px; height: 400px; background: #ff6b6b; top: -100px; right: -100px; }
-    .g2 { width: 300px; height: 300px; background: #6c5ce7; bottom: -80px; left: -80px; }
-    .box { position: relative; z-index: 1; text-align: center; background: rgba(255,255,255,0.04);
-           border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 50px 40px;
-           max-width: 420px; backdrop-filter: blur(20px); animation: fadeIn 0.5s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    .icon { font-size: 56px; margin-bottom: 16px; }
-    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 10px;
-         background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-         -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    p { color: #8888aa; font-size: 0.92rem; line-height: 1.6; }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>${BLOCKED_CSS}.icon-wrap{background:rgba(240,96,96,.1);border:1px solid rgba(240,96,96,.2)}h1{background:linear-gradient(135deg,#f06060,#ee5a24)}.divider{background:linear-gradient(90deg,transparent,rgba(240,96,96,.4),transparent)}</style>
 </head>
 <body>
-  <div class="bg-glow g1"></div>
-  <div class="bg-glow g2"></div>
+  <div class="bg-glow g1"></div><div class="bg-glow g2"></div>
   <div class="box">
-    <div class="icon">📱</div>
+    <div class="icon-wrap">
+      <svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" stroke="#f06060"/><line x1="12" y1="18" x2="12.01" y2="18" stroke="#f06060" stroke-width="2.5"/></svg>
+    </div>
     <h1>Chỉ hỗ trợ điện thoại</h1>
-    <p>Link này chỉ có thể mở trên điện thoại.<br>Vui lòng mở lại bằng thiết bị di động.</p>
+    <div class="divider"></div>
+    <p>Link này chỉ có thể mở trên điện thoại.</p>
+    <p class="hint">Vui lòng mở lại bằng thiết bị di động.</p>
   </div>
-</body>
-</html>`;
+</body></html>`;
 
 // --- Safari detection ---
 function isSafari(userAgent) {
@@ -149,39 +138,26 @@ function isSafari(userAgent) {
 const BLOCKED_BROWSER_HTML = `<!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Không hỗ trợ</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="theme-color" content="#07070f">
+  <title>Vui lòng dùng Safari</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', -apple-system, sans-serif; background: #0a0a1a; color: #e8e8f0;
-           min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    .bg-glow { position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.25; pointer-events: none; }
-    .g1 { width: 400px; height: 400px; background: #ff6b6b; top: -100px; right: -100px; }
-    .g2 { width: 300px; height: 300px; background: #6c5ce7; bottom: -80px; left: -80px; }
-    .box { position: relative; z-index: 1; text-align: center; background: rgba(255,255,255,0.04);
-           border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 50px 40px;
-           max-width: 420px; backdrop-filter: blur(20px); animation: fadeIn 0.5s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    .icon { font-size: 56px; margin-bottom: 16px; }
-    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 10px;
-         background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-         -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    p { color: #8888aa; font-size: 0.92rem; line-height: 1.6; }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>${BLOCKED_CSS}.icon-wrap{background:rgba(124,108,240,.1);border:1px solid rgba(124,108,240,.2)}h1{background:linear-gradient(135deg,#a29bfe,#7c6cf0)}.divider{background:linear-gradient(90deg,transparent,rgba(124,108,240,.4),transparent)}</style>
 </head>
 <body>
-  <div class="bg-glow g1"></div>
-  <div class="bg-glow g2"></div>
+  <div class="bg-glow g1"></div><div class="bg-glow g2"></div>
   <div class="box">
-    <div class="icon">🧭</div>
+    <div class="icon-wrap">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#a29bfe"/><polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" stroke="#a29bfe" fill="rgba(124,108,240,.2)"/></svg>
+    </div>
     <h1>Vui lòng dùng Safari</h1>
-    <p>Link này chỉ hỗ trợ trình duyệt <strong style="color:#e8e8f0;">Safari</strong>.<br>Vui lòng mở lại bằng Safari trên iPhone.</p>
+    <div class="divider"></div>
+    <p>Link này chỉ hỗ trợ trình duyệt <strong style="color:#eaeaf4;">Safari</strong>.</p>
+    <p class="hint">Vui lòng mở lại bằng Safari trên iPhone.</p>
   </div>
-</body>
-</html>`;
+</body></html>`;
 
 // --- Temporary Link Redirect ---
 app.get('/d/:id', (req, res) => {
