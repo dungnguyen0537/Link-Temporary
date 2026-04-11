@@ -1,7 +1,10 @@
-/* ===== LINK TẠM — ADMIN APP.JS ===== */
+/* ===== LINK TẠM — ADMIN APP.JS (Mobile-Optimized) ===== */
 
 const API = '';
 let authToken = localStorage.getItem('authToken') || '';
+
+// --- Detect mobile for perf optimizations ---
+const _isMobile = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent || '');
 
 // --- SVG Icons (inline, no dependency) ---
 const ICONS = {
@@ -83,7 +86,8 @@ let _lastReload = 0;
 function autoReloadData() {
     if (!authToken) return;
     const now = Date.now();
-    if (now - _lastReload < 3000) return; // debounce 3s
+    // OPTIMIZED: Increased debounce from 3s to 5s — reduces redundant API calls on mobile
+    if (now - _lastReload < 5000) return;
     _lastReload = now;
     // Parallel load — faster UX
     Promise.all([loadLinks(), loadGenerators()]);
@@ -91,11 +95,11 @@ function autoReloadData() {
 
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') autoReloadData();
-});
-window.addEventListener('focus', autoReloadData);
+}, { passive: true });
+window.addEventListener('focus', autoReloadData, { passive: true });
 window.addEventListener('pageshow', (e) => {
     if (e.persisted) autoReloadData();
-});
+}, { passive: true });
 
 // --- Login / Logout ---
 function showLogin() {
@@ -240,7 +244,7 @@ copyLinkBtn.addEventListener('click', async () => {
     showLinkHint('#new-link-result .link-hint');
 });
 
-// --- Load Links (optimized) ---
+// --- Load Links (optimized with batched rendering) ---
 let _loadingLinks = false;
 async function loadLinks() {
     if (_loadingLinks) return;
@@ -455,10 +459,23 @@ async function deleteGenerator(gid, rowEl) {
     }
 }
 
-// --- Copy helper ---
+// --- Copy helper (with fallback for mobile) ---
 async function copyToClipboard(text, toast = true) {
     try {
-        await navigator.clipboard.writeText(text);
+        // Modern API
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            // Fallback for older mobile browsers / non-HTTPS
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;opacity:0;left:-9999px;top:-9999px';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
         if (toast) showToast('Đã copy link!', 'success');
         return true;
     } catch {
