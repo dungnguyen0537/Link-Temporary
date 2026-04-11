@@ -105,15 +105,21 @@ window.addEventListener('pageshow', (e) => {
 function showLogin() {
     loginScreen.classList.remove('hidden');
     adminScreen.classList.add('hidden');
-    // Focus password input
-    requestAnimationFrame(() => passwordInput.focus());
+    // Focus password input after DOM settles
+    setTimeout(() => passwordInput.focus(), 50);
 }
 
 function showAdmin() {
     loginScreen.classList.add('hidden');
     adminScreen.classList.remove('hidden');
-    // Parallel load all data at once
-    Promise.all([loadConfig(), loadLinks(), loadGenerators()]);
+    // Force browser to recalculate layout (fixes mobile hidden→visible render bug)
+    adminScreen.offsetHeight;
+    // Load data after UI is visible — use setTimeout to not block rendering
+    setTimeout(() => {
+        loadConfig().catch(() => {});
+        loadLinks().catch(() => {});
+        loadGenerators().catch(() => {});
+    }, 100);
 }
 
 function logout() {
