@@ -3,8 +3,11 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#07070f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
     <title>Link Phụ — Tạo Link Tạm</title>
     <link rel="dns-prefetch" href="https://fonts.googleapis.com">
     <link rel="dns-prefetch" href="https://fonts.gstatic.com">
@@ -14,12 +17,10 @@
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="/style.css">
     <script>
-    // ===== DEVTOOLS PROTECTION (Desktop Only) =====
+    // ===== DEVTOOLS PROTECTION (Desktop Only — ZERO overhead on mobile) =====
     (function(){
         'use strict';
-        var ua = navigator.userAgent || '';
-        var isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|Opera Mini|IEMobile|Mobile/i.test(ua);
-        if(isMobile) return;
+        if(/iPhone|iPad|iPod|Android|webOS|BlackBerry|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent||'')) return;
         document.addEventListener('contextmenu', function(e){ e.preventDefault(); }, true);
         document.addEventListener('keydown', function(e){
             if(e.key === 'F12' || e.keyCode === 123){ e.preventDefault(); e.stopPropagation(); return false; }
@@ -35,7 +36,7 @@
             if(t){ document.body.style.display = 'none'; } else { document.body.style.display = ''; }
         };
         window.addEventListener('resize', _dt);
-        setInterval(function(){ console.clear(); }, 200);
+        setInterval(function(){ console.clear(); }, 2000);
     })();
     </script>
     <style>
