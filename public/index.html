@@ -3,10 +3,13 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Link Tạm — Quản Lý</title>
     <meta name="description" content="Tạo và quản lý link download tạm thời — tự huỷ sau 1 lần click">
     <meta name="theme-color" content="#07070f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
     <link rel="dns-prefetch" href="https://fonts.googleapis.com">
     <link rel="dns-prefetch" href="https://fonts.gstatic.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,15 +18,11 @@
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="style.css">
     <script>
-    // ===== DEVTOOLS PROTECTION (Desktop Only) =====
+    // ===== DEVTOOLS PROTECTION (Desktop Only — ZERO overhead on mobile) =====
     (function(){
         'use strict';
-        var ua = navigator.userAgent || '';
-        var isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|Opera Mini|IEMobile|Mobile/i.test(ua);
-        if(isMobile) return; // Skip protection on mobile
-        // Block right-click
+        if(/iPhone|iPad|iPod|Android|webOS|BlackBerry|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent||'')) return;
         document.addEventListener('contextmenu', function(e){ e.preventDefault(); }, true);
-        // Block key combos
         document.addEventListener('keydown', function(e){
             if(e.key === 'F12' || e.keyCode === 123){ e.preventDefault(); e.stopPropagation(); return false; }
             if((e.ctrlKey||e.metaKey) && e.shiftKey && ['I','J','C','K'].includes(e.key.toUpperCase())){ e.preventDefault(); e.stopPropagation(); return false; }
@@ -31,17 +30,14 @@
             if((e.ctrlKey||e.metaKey) && e.key.toUpperCase() === 'S'){ e.preventDefault(); e.stopPropagation(); return false; }
             if((e.ctrlKey||e.metaKey) && e.key.toUpperCase() === 'P'){ e.preventDefault(); e.stopPropagation(); return false; }
         }, true);
-        // Block drag
         document.addEventListener('dragstart', function(e){ e.preventDefault(); }, true);
-        // Block select text
         document.addEventListener('selectstart', function(e){ e.preventDefault(); }, true);
-        // DevTools open detection
         var _dt = function(){
             var t = window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 160;
             if(t){ document.body.style.display = 'none'; } else { document.body.style.display = ''; }
         };
         window.addEventListener('resize', _dt);
-        setInterval(function(){ console.clear(); }, 200);
+        setInterval(function(){ console.clear(); }, 2000);
     })();
     </script>
 </head>
