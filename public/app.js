@@ -15,14 +15,22 @@ const ICONS = {
   plus: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
 };
 
-// Inject spin animation style
+// Inject spin animation style — must override mobile kill rule
 const spinStyle = document.createElement('style');
 spinStyle.textContent = `
-  .spin-anim { animation: spinIcon 0.7s linear infinite; }
+  .spin-anim { animation: spinIcon 0.7s linear infinite !important; }
   @keyframes spinIcon { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .spin-anim { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .spin-anim { animation: none !important; } }
 `;
 document.head.appendChild(spinStyle);
+
+// --- Fetch with timeout (prevents hanging on slow mobile networks) ---
+function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal })
+        .finally(() => clearTimeout(id));
+}
 
 // --- DOM Elements ---
 const loginScreen  = document.getElementById('login-screen');
@@ -64,12 +72,19 @@ async function authFetch(url, options = {}) {
     if (!options.headers['Content-Type'] && options.method !== 'DELETE') {
         options.headers['Content-Type'] = 'application/json';
     }
-    const res = await fetch(url, options);
-    if (res.status === 401) {
-        logout();
-        return null;
+    try {
+        const res = await fetchWithTimeout(url, options, 12000);
+        if (res.status === 401) {
+            logout();
+            return null;
+        }
+        return res;
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            console.warn('Request timeout:', url);
+        }
+        throw err;
     }
-    return res;
 }
 
 // --- Init ---
@@ -105,21 +120,18 @@ window.addEventListener('pageshow', (e) => {
 function showLogin() {
     loginScreen.classList.remove('hidden');
     adminScreen.classList.add('hidden');
-    // Focus password input after DOM settles
     setTimeout(() => passwordInput.focus(), 50);
 }
 
 function showAdmin() {
     loginScreen.classList.add('hidden');
     adminScreen.classList.remove('hidden');
-    // Force browser to recalculate layout (fixes mobile hidden→visible render bug)
-    adminScreen.offsetHeight;
-    // Load data after UI is visible — use setTimeout to not block rendering
-    setTimeout(() => {
-        loadConfig().catch(() => {});
-        loadLinks().catch(() => {});
-        loadGenerators().catch(() => {});
-    }, 100);
+    // Force layout recalc
+    void adminScreen.offsetHeight;
+    // Load data independently — don't block UI
+    loadConfig().catch(() => {});
+    loadLinks().catch(() => {});
+    loadGenerators().catch(() => {});
 }
 
 function logout() {
@@ -138,18 +150,26 @@ async function doLogin() {
     if (!password) return;
 
     loginBtn.disabled = true;
-    loginBtn.innerHTML = `${ICONS.spinner} Đang đăng nhập...`;
     loginError.classList.add('hidden');
 
+    // Text-based progress that works without animation
+    let dots = 0;
+    loginBtn.textContent = 'Đang kết nối...';
+    const progressTimer = setInterval(() => {
+        dots = (dots + 1) % 4;
+        loginBtn.textContent = 'Đang kết nối' + '.'.repeat(dots + 1);
+    }, 500);
+
     try {
-        const res = await fetch(`${API}/api/login`, {
+        const res = await fetchWithTimeout(`${API}/api/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ password })
-        });
+        }, 15000);
         const data = await res.json();
 
         if (data.success) {
+            loginBtn.textContent = '✓ Đăng nhập thành công!';
             authToken = data.token;
             localStorage.setItem('authToken', authToken);
             passwordInput.value = '';
@@ -160,9 +180,14 @@ async function doLogin() {
             passwordInput.select();
         }
     } catch (err) {
-        loginError.textContent = 'Lỗi kết nối — vui lòng thử lại';
+        if (err.name === 'AbortError') {
+            loginError.textContent = 'Quá thời gian chờ — vui lòng thử lại';
+        } else {
+            loginError.textContent = 'Lỗi kết nối — vui lòng thử lại';
+        }
         loginError.classList.remove('hidden');
     } finally {
+        clearInterval(progressTimer);
         loginBtn.disabled = false;
         loginBtn.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Đăng nhập`;
     }
