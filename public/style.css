@@ -148,7 +148,9 @@ body {
   max-width: 760px;
   margin: 0 auto;
   padding: 48px 24px 80px;
-  animation: containerFadeIn 0.6s var(--transition-base) both;
+  /* Animation only on desktop — mobile gets instant render */
+  opacity: 1;
+  transform: none;
 }
 
 @keyframes containerFadeIn {
@@ -949,6 +951,11 @@ tbody tr:hover {
     -webkit-transition: none !important;
   }
 
+  /* Exception: loading spinner must work */
+  .spin-anim {
+    animation: spinIcon 0.7s linear infinite !important;
+  }
+
   /* === KILL ALL GPU-HEAVY EFFECTS === */
   .card {
     backdrop-filter: none !important;
@@ -1163,12 +1170,14 @@ tbody tr:hover {
 @media (min-width: 769px) and (max-width: 1024px) {
   .container {
     max-width: 720px;
+    animation: containerFadeIn 0.6s 250ms cubic-bezier(0.4, 0, 0.2, 1) both;
   }
 }
 
 @media (min-width: 1440px) {
   .container {
     max-width: 820px;
+    animation: containerFadeIn 0.6s 250ms cubic-bezier(0.4, 0, 0.2, 1) both;
   }
 
   body {
