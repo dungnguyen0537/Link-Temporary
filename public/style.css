@@ -71,6 +71,8 @@ body {
   overflow-x: hidden;
   line-height: 1.6;
   font-size: 15px;
+  /* Prevent pull-to-refresh interference */
+  overscroll-behavior-y: contain;
 }
 
 /* ===== SCROLLBAR ===== */
@@ -92,34 +94,38 @@ body {
 }
 
 /* ===== BACKGROUND GLOWS ===== */
+/* OPTIMIZED: Use pre-blurred radial gradients instead of filter:blur(140px) */
+/* This eliminates the GPU-intensive blur calculation per frame */
 .bg-glow {
   position: fixed;
   border-radius: 50%;
-  filter: blur(140px);
   opacity: 0.22;
   pointer-events: none;
   z-index: 0;
-  will-change: transform;
-  contain: layout style paint;
+  contain: layout style paint size;
   transform: translateZ(0);
 }
 
 .glow-1 {
   width: 550px;
   height: 550px;
-  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  /* Pre-blurred gradient — no filter:blur needed */
+  background: radial-gradient(circle, var(--accent) 0%, rgba(124, 108, 240, 0.3) 25%, rgba(124, 108, 240, 0.1) 45%, transparent 65%);
   top: -120px;
   right: -100px;
   animation: floatGlow1 20s ease-in-out infinite;
+  will-change: transform;
 }
 
 .glow-2 {
   width: 450px;
   height: 450px;
-  background: radial-gradient(circle, var(--green) 0%, transparent 70%);
+  /* Pre-blurred gradient — no filter:blur needed */
+  background: radial-gradient(circle, var(--green) 0%, rgba(0, 210, 198, 0.3) 25%, rgba(0, 210, 198, 0.1) 45%, transparent 65%);
   bottom: -100px;
   left: -100px;
   animation: floatGlow2 25s ease-in-out infinite;
+  will-change: transform;
 }
 
 @keyframes floatGlow1 {
@@ -176,6 +182,7 @@ header {
   border: 1px solid var(--border);
   animation: logoPulse 3s ease-in-out infinite;
   position: relative;
+  contain: layout style;
 }
 
 .logo::after {
@@ -187,16 +194,16 @@ header {
   opacity: 0;
   z-index: -1;
   transition: opacity var(--transition-base);
-  filter: blur(12px);
 }
 
 .logo:hover::after {
   opacity: 0.3;
 }
 
+/* OPTIMIZED: Use opacity instead of box-shadow animation (compositor-friendly) */
 @keyframes logoPulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 var(--accent-glow); }
-  50% { transform: scale(1.04); box-shadow: 0 0 20px 4px var(--accent-glow); }
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.04); opacity: 0.9; }
 }
 
 /* SVG icon inside logo */
@@ -233,6 +240,7 @@ h1 {
   border-radius: var(--radius);
   padding: 28px;
   margin-bottom: 20px;
+  /* OPTIMIZED: backdrop-filter only on desktop (controlled via media query below) */
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
@@ -240,6 +248,7 @@ h1 {
   contain-intrinsic-size: auto 200px;
   position: relative;
   overflow: hidden;
+  contain: layout style;
 }
 
 .card::before {
@@ -314,6 +323,9 @@ input[type="number"] {
   font-family: inherit;
   outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  /* Prevent iOS zoom on focus */
+  font-size: 16px;
+  touch-action: manipulation;
 }
 
 input:focus {
@@ -371,6 +383,10 @@ input[type="number"]::-webkit-inner-spin-button {
   position: relative;
   overflow: hidden;
   white-space: nowrap;
+  /* Optimize tap targets for mobile */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
 }
 
 .btn::after {
@@ -484,6 +500,10 @@ input[type="number"]::-webkit-inner-spin-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .btn-delete:hover {
@@ -589,6 +609,8 @@ input[type="number"]::-webkit-inner-spin-button {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: var(--radius-sm);
+  /* Optimize scrolling on mobile */
+  overscroll-behavior-x: contain;
 }
 
 table {
@@ -632,6 +654,8 @@ tbody tr:hover {
   padding: 6px 10px;
   border-radius: var(--radius-xs);
   display: inline-block;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .link-cell:hover {
@@ -664,13 +688,14 @@ tbody tr:hover {
   height: 7px;
   border-radius: 50%;
   background: var(--green);
+  /* OPTIMIZED: Use opacity animation instead of box-shadow */
   animation: statusPulse 2s ease-in-out infinite;
   flex-shrink: 0;
 }
 
 @keyframes statusPulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 210, 198, 0.4); }
-  50% { opacity: 0.4; box-shadow: 0 0 6px 2px rgba(0, 210, 198, 0.2); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 .badge-used {
@@ -730,10 +755,8 @@ tbody tr:hover {
   bottom: 32px;
   left: 50%;
   transform: translateX(-50%) translateY(16px);
-  background: rgba(20, 20, 40, 0.92);
+  background: rgba(20, 20, 40, 0.95);
   border: 1px solid var(--border);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   color: var(--text);
   padding: 14px 28px;
   border-radius: var(--radius-sm);
@@ -745,6 +768,8 @@ tbody tr:hover {
   pointer-events: none;
   box-shadow: var(--shadow-lg);
   max-width: 90vw;
+  /* OPTIMIZED: Removed backdrop-filter from toast */
+  contain: layout style paint;
 }
 
 .toast.show {
@@ -906,9 +931,100 @@ tbody tr:hover {
   border-radius: var(--radius-xs);
 }
 
-/* ===== RESPONSIVE ===== */
-/* Mobile first — 375px base */
+/* ==========================================================================
+   MOBILE PERFORMANCE OPTIMIZATIONS
+   ========================================================================== */
 
+/* --- Mobile: ≤768px — Disable GPU-intensive effects --- */
+@media (max-width: 768px) {
+  /* CRITICAL FIX: Disable backdrop-filter — #1 cause of mobile freeze */
+  .card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    /* Use slightly more opaque background to compensate */
+    background: rgba(12, 12, 28, 0.85);
+    /* Disable hover transforms on mobile (no hover state anyway) */
+    transform: none !important;
+  }
+
+  .card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .card::before {
+    display: none;
+  }
+
+  .toast {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(20, 20, 40, 0.97);
+  }
+
+  /* CRITICAL FIX: Stop ALL infinite animations — saves massive GPU/battery */
+  .bg-glow {
+    animation: none !important;
+    /* Static position instead of animated */
+    opacity: 0.12;
+  }
+
+  .glow-1 {
+    animation: none !important;
+  }
+
+  .glow-2 {
+    animation: none !important;
+  }
+
+  .logo {
+    animation: none !important;
+  }
+
+  .badge-active::before {
+    animation: none !important;
+    opacity: 1;
+  }
+
+  .quota-bar-fill::after {
+    animation: none !important;
+    /* Static shimmer look */
+    background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+  }
+
+  /* Reduce glow sizes on mobile to save rendering */
+  .glow-1 {
+    width: 300px;
+    height: 300px;
+    top: -80px;
+    right: -60px;
+  }
+
+  .glow-2 {
+    width: 250px;
+    height: 250px;
+    bottom: -60px;
+    left: -60px;
+  }
+
+  /* Simplify transitions for smoother interactions */
+  .btn {
+    transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+
+  .btn:hover::after {
+    display: none;
+  }
+
+  /* Prevent double-tap zoom on buttons */
+  .btn,
+  .link-cell,
+  .btn-delete {
+    touch-action: manipulation;
+  }
+}
+
+/* --- Standard Mobile Responsive (≤480px) --- */
 @media (max-width: 480px) {
   .container {
     padding: 20px 14px 50px;
@@ -954,6 +1070,17 @@ tbody tr:hover {
 
   .btn-lg {
     padding: 14px 20px;
+  }
+
+  /* Even smaller glows on small phones */
+  .glow-1 {
+    width: 220px;
+    height: 220px;
+  }
+
+  .glow-2 {
+    width: 180px;
+    height: 180px;
   }
 }
 
