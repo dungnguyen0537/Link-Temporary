@@ -932,102 +932,172 @@ tbody tr:hover {
 }
 
 /* ==========================================================================
-   MOBILE PERFORMANCE OPTIMIZATIONS
+   MOBILE — PURE FUNCTIONAL MODE (NO EFFECTS)
+   Tất cả animation, blur, glow, transition bị tắt hoàn toàn.
+   Chỉ giữ lại chức năng đúng và chính xác.
    ========================================================================== */
 
-/* --- Mobile: ≤768px — Disable GPU-intensive effects --- */
 @media (max-width: 768px) {
-  /* CRITICAL FIX: Disable backdrop-filter — #1 cause of mobile freeze */
+
+  /* === KILL ALL ANIMATIONS & TRANSITIONS === */
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    -webkit-animation: none !important;
+    -webkit-transition: none !important;
+  }
+
+  /* === KILL ALL GPU-HEAVY EFFECTS === */
   .card {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    /* Use slightly more opaque background to compensate */
-    background: rgba(12, 12, 28, 0.85);
-    /* Disable hover transforms on mobile (no hover state anyway) */
+    background: rgba(14, 14, 30, 0.92) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     transform: none !important;
+    box-shadow: none !important;
+    /* FIX: Remove content-visibility that breaks hidden→visible rendering */
+    content-visibility: visible !important;
+    contain-intrinsic-size: auto !important;
+    contain: none !important;
   }
 
   .card:hover {
-    transform: none;
-    box-shadow: none;
+    transform: none !important;
+    box-shadow: none !important;
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   .card::before {
-    display: none;
+    display: none !important;
   }
 
-  .toast {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    background: rgba(20, 20, 40, 0.97);
-  }
-
-  /* CRITICAL FIX: Stop ALL infinite animations — saves massive GPU/battery */
+  /* === KILL BACKGROUND GLOWS === */
   .bg-glow {
-    animation: none !important;
-    /* Static position instead of animated */
-    opacity: 0.12;
+    display: none !important;
   }
 
-  .glow-1 {
+  /* === CONTAINER — instant show, no animation === */
+  .container {
     animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 
-  .glow-2 {
-    animation: none !important;
-  }
-
+  /* === LOGO — static, no pulse === */
   .logo {
     animation: none !important;
+    box-shadow: none !important;
   }
 
+  .logo::after {
+    display: none !important;
+  }
+
+  /* === BADGES — static dot === */
   .badge-active::before {
     animation: none !important;
     opacity: 1;
+    box-shadow: none !important;
   }
 
+  /* === QUOTA BAR — no shimmer === */
   .quota-bar-fill::after {
     animation: none !important;
-    /* Static shimmer look */
-    background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+    display: none !important;
   }
 
-  /* Reduce glow sizes on mobile to save rendering */
-  .glow-1 {
-    width: 300px;
-    height: 300px;
-    top: -80px;
-    right: -60px;
+  /* === TOAST — solid background === */
+  .toast {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(20, 20, 40, 0.98) !important;
   }
 
-  .glow-2 {
-    width: 250px;
-    height: 250px;
-    bottom: -60px;
-    left: -60px;
-  }
-
-  /* Simplify transitions for smoother interactions */
+  /* === BUTTONS — functional only === */
   .btn {
-    transition: opacity 0.15s ease, transform 0.1s ease;
+    transition: none !important;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px;
   }
 
-  .btn:hover::after {
-    display: none;
+  .btn::after {
+    display: none !important;
   }
 
-  /* Prevent double-tap zoom on buttons */
-  .btn,
-  .link-cell,
+  .btn:active {
+    opacity: 0.7;
+  }
+
   .btn-delete {
     touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* === LINKS — functional tap targets === */
+  .link-cell {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* === NEW LINK RESULT — instant show === */
+  .new-link-result {
+    animation: none !important;
+  }
+
+  /* === LINK HINT — instant show/hide === */
+  .link-hint {
+    transition: none !important;
+  }
+
+  .link-hint.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* === TABLE ROWS — no hover effect === */
+  tr {
+    transition: none !important;
+  }
+
+  tbody tr:hover {
+    background: transparent;
+  }
+
+  /* === SKELETON — static === */
+  .skeleton {
+    animation: none !important;
+  }
+
+  /* === INPUT — prevent iOS zoom === */
+  input[type="url"],
+  input[type="text"],
+  input[type="password"],
+  input[type="number"] {
+    font-size: 16px !important;
+    touch-action: manipulation;
+    transition: none !important;
+  }
+
+  input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+  }
+
+  /* === LOGIN ERROR — no shake === */
+  .login-error {
+    animation: none !important;
   }
 }
 
-/* --- Standard Mobile Responsive (≤480px) --- */
+/* --- Small phones (≤480px) — Layout adjustments --- */
 @media (max-width: 480px) {
   .container {
-    padding: 20px 14px 50px;
+    padding: 16px 12px 40px;
   }
 
   h1 {
@@ -1035,7 +1105,7 @@ tbody tr:hover {
   }
 
   .card {
-    padding: 20px 16px;
+    padding: 18px 14px;
     border-radius: 12px;
   }
 
@@ -1070,17 +1140,6 @@ tbody tr:hover {
 
   .btn-lg {
     padding: 14px 20px;
-  }
-
-  /* Even smaller glows on small phones */
-  .glow-1 {
-    width: 220px;
-    height: 220px;
-  }
-
-  .glow-2 {
-    width: 180px;
-    height: 180px;
   }
 }
 
