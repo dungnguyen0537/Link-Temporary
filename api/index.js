@@ -17,6 +17,15 @@ const redis = new Redis({
 // Admin password from env var (set in Vercel dashboard)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
+// --- Cache for static HTML files (avoid fs.readFileSync on every request) ---
+const _htmlCache = {};
+function getHtmlFile(filename) {
+    if (_htmlCache[filename]) return _htmlCache[filename];
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', filename), 'utf-8');
+    _htmlCache[filename] = html;
+    return html;
+}
+
 // --- Auth middleware ---
 async function requireAuth(req, res, next) {
     const token = req.headers['x-auth-token'];
@@ -93,17 +102,28 @@ app.post('/api/create-link', requireAuth, async (req, res) => {
     }
 });
 
+// OPTIMIZED: Batch Redis queries using mget instead of N sequential gets
 app.get('/api/links', requireAuth, async (req, res) => {
     try {
         const linkIds = await redis.lrange('links', 0, -1) || [];
+        if (linkIds.length === 0) {
+            return res.json({ links: [] });
+        }
+
+        // Batch fetch all links in one Redis call
+        const keys = linkIds.map(id => `link:${id}`);
+        const rawResults = await redis.mget(...keys);
+
         const links = [];
-        for (const id of linkIds) {
-            const raw = await redis.get(`link:${id}`);
+        for (const raw of rawResults) {
             if (raw) {
                 const link = typeof raw === 'string' ? JSON.parse(raw) : raw;
                 links.push(link);
             }
         }
+
+        // Set cache header for short-lived caching
+        res.set('Cache-Control', 'private, max-age=2');
         res.json({ links });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -121,19 +141,35 @@ app.delete('/api/links/:id', requireAuth, async (req, res) => {
     }
 });
 
+// OPTIMIZED: Batch delete with mget
 app.delete('/api/links-used', requireAuth, async (req, res) => {
     try {
         const linkIds = await redis.lrange('links', 0, -1) || [];
-        for (const id of linkIds) {
-            const raw = await redis.get(`link:${id}`);
+        if (linkIds.length === 0) {
+            return res.json({ success: true });
+        }
+
+        // Batch fetch all links
+        const keys = linkIds.map(id => `link:${id}`);
+        const rawResults = await redis.mget(...keys);
+
+        // Find used links and delete them
+        const deletePromises = [];
+        for (let i = 0; i < linkIds.length; i++) {
+            const raw = rawResults[i];
             if (raw) {
                 const link = typeof raw === 'string' ? JSON.parse(raw) : raw;
                 if (link.used) {
-                    await redis.del(`link:${id}`);
-                    await redis.lrem('links', 0, id);
+                    deletePromises.push(redis.del(`link:${linkIds[i]}`));
+                    deletePromises.push(redis.lrem('links', 0, linkIds[i]));
                 }
             }
         }
+
+        if (deletePromises.length > 0) {
+            await Promise.all(deletePromises);
+        }
+
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -173,18 +209,26 @@ app.post('/api/create-generator', requireAuth, async (req, res) => {
     }
 });
 
-// List all generators
+// OPTIMIZED: Batch fetch generators
 app.get('/api/generators', requireAuth, async (req, res) => {
     try {
         const gids = await redis.lrange('generators', 0, -1) || [];
+        if (gids.length === 0) {
+            return res.json({ generators: [] });
+        }
+
+        const keys = gids.map(gid => `generator:${gid}`);
+        const rawResults = await redis.mget(...keys);
+
         const generators = [];
-        for (const gid of gids) {
-            const raw = await redis.get(`generator:${gid}`);
+        for (const raw of rawResults) {
             if (raw) {
                 const gen = typeof raw === 'string' ? JSON.parse(raw) : raw;
                 generators.push(gen);
             }
         }
+
+        res.set('Cache-Control', 'private, max-age=2');
         res.json({ generators });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -212,6 +256,8 @@ app.get('/api/generator/:gid/info', async (req, res) => {
             return res.status(404).json({ error: 'Generator not found' });
         }
         const gen = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        // Cache briefly for mobile performance
+        res.set('Cache-Control', 'private, max-age=3');
         res.json({
             id: gen.id,
             maxLinks: gen.maxLinks,
@@ -251,8 +297,11 @@ app.post('/api/generator/:gid/create-link', async (req, res) => {
             generatorId: gid
         };
 
-        await redis.set(`link:${id}`, JSON.stringify(link));
-        await redis.lpush('links', id);
+        // Parallel writes for speed
+        await Promise.all([
+            redis.set(`link:${id}`, JSON.stringify(link)),
+            redis.lpush('links', id),
+        ]);
 
         gen.usedLinks += 1;
         await redis.set(`generator:${gid}`, JSON.stringify(gen));
@@ -269,7 +318,7 @@ app.post('/api/generator/:gid/create-link', async (req, res) => {
     }
 });
 
-// Get links created by a generator (public — no auth)
+// OPTIMIZED: Batch fetch generator links
 app.get('/api/generator/:gid/links', async (req, res) => {
     try {
         const gid = req.params.gid;
@@ -279,9 +328,16 @@ app.get('/api/generator/:gid/links', async (req, res) => {
         }
 
         const linkIds = await redis.lrange('links', 0, -1) || [];
+        if (linkIds.length === 0) {
+            return res.json({ links: [] });
+        }
+
+        // Batch fetch all links in one call
+        const keys = linkIds.map(id => `link:${id}`);
+        const rawResults = await redis.mget(...keys);
+
         const links = [];
-        for (const id of linkIds) {
-            const linkRaw = await redis.get(`link:${id}`);
+        for (const linkRaw of rawResults) {
             if (linkRaw) {
                 const link = typeof linkRaw === 'string' ? JSON.parse(linkRaw) : linkRaw;
                 if (link.generatorId === gid) {
@@ -289,23 +345,23 @@ app.get('/api/generator/:gid/links', async (req, res) => {
                 }
             }
         }
+
+        res.set('Cache-Control', 'private, max-age=3');
         res.json({ links });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Serve generator page (public)
+// Serve generator page (public) — using cached HTML
 app.get('/g/:gid', async (req, res) => {
     try {
         const gid = req.params.gid;
         const raw = await redis.get(`generator:${gid}`);
         if (!raw) {
-            const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'expired.html'), 'utf-8');
-            return res.status(410).send(html);
+            return res.status(410).send(getHtmlFile('expired.html'));
         }
-        const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'generator.html'), 'utf-8');
-        res.send(html);
+        res.send(getHtmlFile('generator.html'));
     } catch (err) {
         res.status(500).send('Server error: ' + err.message);
     }
@@ -336,11 +392,12 @@ function isDesktop(userAgent) {
     return !mobileKeywords.some(k => ua.includes(k));
 }
 
-const PROTECTION_SCRIPT = `<script>(function(){'use strict';document.addEventListener('contextmenu',function(e){e.preventDefault()},true);document.addEventListener('keydown',function(e){if(e.key==='F12'||e.keyCode===123){e.preventDefault();e.stopPropagation();return false}if((e.ctrlKey||e.metaKey)&&e.shiftKey&&['I','J','C','K'].includes(e.key.toUpperCase())){e.preventDefault();e.stopPropagation();return false}if((e.ctrlKey||e.metaKey)&&e.key.toUpperCase()==='U'){e.preventDefault();e.stopPropagation();return false}if((e.ctrlKey||e.metaKey)&&e.key.toUpperCase()==='S'){e.preventDefault();e.stopPropagation();return false}if((e.ctrlKey||e.metaKey)&&e.key.toUpperCase()==='P'){e.preventDefault();e.stopPropagation();return false}},true);document.addEventListener('dragstart',function(e){e.preventDefault()},true);document.addEventListener('selectstart',function(e){e.preventDefault()},true);var _dt=function(){var t=window.outerWidth-window.innerWidth>160||window.outerHeight-window.innerHeight>160;if(t){document.body.style.display='none'}else{document.body.style.display=''}};window.addEventListener('resize',_dt);setInterval(function(){console.clear()},200)})()</script>`;
+const PROTECTION_SCRIPT = `<script>(function(){'use strict';document.addEventListener('contextmenu',function(e){e.preventDefault()},true);document.addEventListener('keydown',function(e){if(e.key==='F12'||e.keyCode===123){e.preventDefault();e.stopPropagation();return false}if((e.ctrlKey||e.metaKey)&&e.shiftKey&&['I','J','C','K'].includes(e.key.toUpperCase())){e.preventDefault();e.stopPropagation();return false}if((e.ctrlKey||e.metaKey)&&e.key.toUpperCase()==='U'){e.preventDefault();e.stopPropagation();return false}if((e.ctrlKey||e.metaKey)&&e.key.toUpperCase()==='S'){e.preventDefault();e.stopPropagation();return false}if((e.ctrlKey||e.metaKey)&&e.key.toUpperCase()==='P'){e.preventDefault();e.stopPropagation();return false}},true);document.addEventListener('dragstart',function(e){e.preventDefault()},true);document.addEventListener('selectstart',function(e){e.preventDefault()},true);var _dt=function(){var t=window.outerWidth-window.innerWidth>160||window.outerHeight-window.innerHeight>160;if(t){document.body.style.display='none'}else{document.body.style.display=''}};window.addEventListener('resize',_dt);setInterval(function(){console.clear()},2000)})()</script>`;
 
-const BLOCKED_CSS = `*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html{-webkit-font-smoothing:antialiased}body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:#07070f;color:#eaeaf4;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:20px}.bg-glow{position:fixed;border-radius:50%;filter:blur(140px);opacity:.18;pointer-events:none}.g1{width:450px;height:450px;background:radial-gradient(circle,#f06060 0%,transparent 70%);top:-120px;right:-120px}.g2{width:350px;height:350px;background:radial-gradient(circle,#7c6cf0 0%,transparent 70%);bottom:-100px;left:-100px}.box{position:relative;z-index:1;text-align:center;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:52px 44px;max-width:420px;width:100%;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);animation:fadeInUp .5s cubic-bezier(.4,0,.2,1) both;box-shadow:0 24px 80px rgba(0,0,0,.4)}@keyframes fadeInUp{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}.icon-wrap{width:72px;height:72px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;border-radius:50%;animation:iconPulse 2.5s ease-in-out infinite}@keyframes iconPulse{0%,100%{box-shadow:0 0 0 0 rgba(240,96,96,.2)}50%{box-shadow:0 0 0 10px rgba(240,96,96,0)}}.icon-wrap svg{width:34px;height:34px;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none}h1{font-size:1.45rem;font-weight:800;margin-bottom:12px;letter-spacing:-.02em;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}p{color:#6e6e8a;font-size:.9rem;line-height:1.7}.divider{width:40px;height:2px;margin:20px auto;border-radius:1px}.hint{font-size:.78rem;color:#6e6e8a;opacity:.7;margin-top:8px}@media(max-width:480px){.box{padding:36px 24px}h1{font-size:1.25rem}}@media(prefers-reduced-motion:reduce){.box,.icon-wrap{animation:none}}`;
+// OPTIMIZED: Pre-blurred CSS — no filter:blur() for mobile GPU
+const BLOCKED_CSS = `*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html{-webkit-font-smoothing:antialiased}body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:#07070f;color:#eaeaf4;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:20px;overscroll-behavior-y:contain}.bg-glow{position:fixed;border-radius:50%;opacity:.18;pointer-events:none;contain:layout style paint size}.g1{width:450px;height:450px;background:radial-gradient(circle,#f06060 0%,rgba(240,96,96,.3) 25%,rgba(240,96,96,.1) 45%,transparent 65%);top:-120px;right:-120px}.g2{width:350px;height:350px;background:radial-gradient(circle,#7c6cf0 0%,rgba(124,108,240,.3) 25%,rgba(124,108,240,.1) 45%,transparent 65%);bottom:-100px;left:-100px}.box{position:relative;z-index:1;text-align:center;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:52px 44px;max-width:420px;width:100%;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);animation:fadeInUp .5s cubic-bezier(.4,0,.2,1) both;box-shadow:0 24px 80px rgba(0,0,0,.4);contain:layout style}@keyframes fadeInUp{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}.icon-wrap{width:72px;height:72px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;border-radius:50%;animation:iconPulse 2.5s ease-in-out infinite}@keyframes iconPulse{0%,100%{opacity:1}50%{opacity:.7}}.icon-wrap svg{width:34px;height:34px;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none}h1{font-size:1.45rem;font-weight:800;margin-bottom:12px;letter-spacing:-.02em;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}p{color:#6e6e8a;font-size:.9rem;line-height:1.7}.divider{width:40px;height:2px;margin:20px auto;border-radius:1px}.hint{font-size:.78rem;color:#6e6e8a;opacity:.7;margin-top:8px}@media(max-width:768px){.box{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(12,12,28,.9)}.bg-glow{opacity:.1}.g1{width:250px;height:250px}.g2{width:200px;height:200px}.icon-wrap{animation:none}}@media(max-width:480px){.box{padding:36px 24px}h1{font-size:1.25rem}}@media(prefers-reduced-motion:reduce){.box,.icon-wrap{animation:none}}`;
 
-const BLOCKED_DESKTOP_HTML = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="theme-color" content="#07070f"><title>Chỉ hỗ trợ điện thoại</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet"><style>${BLOCKED_CSS}.icon-wrap{background:rgba(240,96,96,.1);border:1px solid rgba(240,96,96,.2)}h1{background:linear-gradient(135deg,#f06060,#ee5a24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.divider{background:linear-gradient(90deg,transparent,rgba(240,96,96,.4),transparent)}</style></head><body><div class="bg-glow g1"></div><div class="bg-glow g2"></div><div class="box"><div class="icon-wrap"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" stroke="#f06060"/><line x1="12" y1="18" x2="12.01" y2="18" stroke="#f06060" stroke-width="2.5"/></svg></div><h1>Chỉ hỗ trợ điện thoại</h1><div class="divider"></div><p>Link này chỉ có thể mở trên điện thoại.</p><p class="hint">Vui lòng mở lại bằng thiết bị di động.</p></div>${PROTECTION_SCRIPT}</body></html>`;
+const BLOCKED_DESKTOP_HTML = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><meta name="theme-color" content="#07070f"><title>Chỉ hỗ trợ điện thoại</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet"><style>${BLOCKED_CSS}.icon-wrap{background:rgba(240,96,96,.1);border:1px solid rgba(240,96,96,.2)}h1{background:linear-gradient(135deg,#f06060,#ee5a24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.divider{background:linear-gradient(90deg,transparent,rgba(240,96,96,.4),transparent)}</style></head><body><div class="bg-glow g1"></div><div class="bg-glow g2"></div><div class="box"><div class="icon-wrap"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" stroke="#f06060"/><line x1="12" y1="18" x2="12.01" y2="18" stroke="#f06060" stroke-width="2.5"/></svg></div><h1>Chỉ hỗ trợ điện thoại</h1><div class="divider"></div><p>Link này chỉ có thể mở trên điện thoại.</p><p class="hint">Vui lòng mở lại bằng thiết bị di động.</p></div>${PROTECTION_SCRIPT}</body></html>`;
 
 // --- Safari detection ---
 function isSafari(userAgent) {
@@ -352,7 +409,7 @@ function isSafari(userAgent) {
     return !nonSafari.some(b => ua.includes(b));
 }
 
-const BLOCKED_BROWSER_HTML = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="theme-color" content="#07070f"><title>Vui lòng dùng Safari</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet"><style>${BLOCKED_CSS}.icon-wrap{background:rgba(124,108,240,.1);border:1px solid rgba(124,108,240,.2)}h1{background:linear-gradient(135deg,#a29bfe,#7c6cf0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.divider{background:linear-gradient(90deg,transparent,rgba(124,108,240,.4),transparent)}</style></head><body><div class="bg-glow g1"></div><div class="bg-glow g2"></div><div class="box"><div class="icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#a29bfe"/><polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" stroke="#a29bfe" fill="rgba(124,108,240,.2)"/></svg></div><h1>Vui lòng dùng Safari</h1><div class="divider"></div><p>Link này chỉ hỗ trợ trình duyệt <strong style="color:#eaeaf4;">Safari</strong>.</p><p class="hint">Vui lòng mở lại bằng Safari trên iPhone.</p></div>${PROTECTION_SCRIPT}</body></html>`;
+const BLOCKED_BROWSER_HTML = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><meta name="theme-color" content="#07070f"><title>Vui lòng dùng Safari</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet"><style>${BLOCKED_CSS}.icon-wrap{background:rgba(124,108,240,.1);border:1px solid rgba(124,108,240,.2)}h1{background:linear-gradient(135deg,#a29bfe,#7c6cf0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.divider{background:linear-gradient(90deg,transparent,rgba(124,108,240,.4),transparent)}</style></head><body><div class="bg-glow g1"></div><div class="bg-glow g2"></div><div class="box"><div class="icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#a29bfe"/><polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" stroke="#a29bfe" fill="rgba(124,108,240,.2)"/></svg></div><h1>Vui lòng dùng Safari</h1><div class="divider"></div><p>Link này chỉ hỗ trợ trình duyệt <strong style="color:#eaeaf4;">Safari</strong>.</p><p class="hint">Vui lòng mở lại bằng Safari trên iPhone.</p></div>${PROTECTION_SCRIPT}</body></html>`;
 // --- Step 1: /d/:id → intermediate page → redirect to .mobileconfig ---
 app.get('/d/:id', async (req, res) => {
     try {
@@ -360,15 +417,13 @@ app.get('/d/:id', async (req, res) => {
         const raw = await redis.get(`link:${id}`);
 
         if (!raw) {
-            const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'expired.html'), 'utf-8');
-            return res.status(410).send(html);
+            return res.status(410).send(getHtmlFile('expired.html'));
         }
 
         const link = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
         if (link.used) {
-            const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'expired.html'), 'utf-8');
-            return res.status(410).send(html);
+            return res.status(410).send(getHtmlFile('expired.html'));
         }
 
         const userAgent = req.get('User-Agent') || '';
@@ -389,8 +444,12 @@ app.get('/d/:id', async (req, res) => {
         link.used = true;
         link.usedAt = new Date().toISOString();
         link.usedByIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-        await redis.set(`link:${id}`, JSON.stringify(link));
-        await redis.set(`download:${id}`, 'allowed', { ex: 60 });
+
+        // Parallel: update link + set download token
+        await Promise.all([
+            redis.set(`link:${id}`, JSON.stringify(link)),
+            redis.set(`download:${id}`, 'allowed', { ex: 60 }),
+        ]);
 
         res.send(`<!DOCTYPE html>
 <html>
@@ -433,8 +492,7 @@ app.get('/d/:id/install.mobileconfig', async (req, res) => {
 
         const allowed = await redis.get(`download:${id}`);
         if (!allowed) {
-            const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'expired.html'), 'utf-8');
-            return res.status(410).send(html);
+            return res.status(410).send(getHtmlFile('expired.html'));
         }
 
         await redis.del(`download:${id}`);
