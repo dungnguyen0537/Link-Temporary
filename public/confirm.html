@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Xác nhận tải xuống</title>
+    <meta name="theme-color" content="#07070f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #07070f;
+            color: #eaeaf4;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .bg-glow {
+            position: fixed;
+            border-radius: 50%;
+            opacity: 0.18;
+            pointer-events: none;
+        }
+
+        .glow-1 {
+            width: 450px;
+            height: 450px;
+            background: radial-gradient(circle, #f06060 0%, rgba(240, 96, 96, .3) 25%, rgba(240, 96, 96, .1) 45%, transparent 65%);
+            top: -120px;
+            right: -120px;
+        }
+
+        .glow-2 {
+            width: 350px;
+            height: 350px;
+            background: radial-gradient(circle, #7c6cf0 0%, rgba(124, 108, 240, .3) 25%, rgba(124, 108, 240, .1) 45%, transparent 65%);
+            bottom: -100px;
+            left: -100px;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            background: rgba(255, 255, 255, .035);
+            border: 1px solid rgba(255, 255, 255, .07);
+            border-radius: 20px;
+            padding: 44px 32px;
+            max-width: 380px;
+            width: 100%;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(24px) scale(0.97);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .icon-wrap {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(124, 108, 240, .1);
+            border: 1px solid rgba(124, 108, 240, .2);
+        }
+
+        .icon-wrap svg {
+            width: 36px;
+            height: 36px;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+            stroke: #a29bfe;
+        }
+
+        h1 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #a29bfe, #7c6cf0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .divider {
+            width: 40px;
+            height: 2px;
+            margin: 16px auto;
+            border-radius: 1px;
+            background: linear-gradient(90deg, transparent, rgba(124, 108, 240, .4), transparent);
+        }
+
+        p {
+            color: #6e6e8a;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 28px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .btn-confirm {
+            background: linear-gradient(135deg, #7c6cf0, #a29bfe);
+            color: white;
+            border: 1px solid rgba(124, 108, 240, 0.3);
+        }
+
+        .btn-confirm:active {
+            transform: scale(0.98);
+            box-shadow: 0 4px 12px rgba(124, 108, 240, 0.3);
+        }
+
+        .btn-cancel {
+            background: rgba(255, 255, 255, .08);
+            color: #eaeaf4;
+            border: 1px solid rgba(255, 255, 255, .12);
+        }
+
+        .btn-cancel:active {
+            transform: scale(0.98);
+            background: rgba(255, 255, 255, .12);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 36px 24px;
+            }
+
+            h1 {
+                font-size: 1.2rem;
+            }
+
+            p {
+                font-size: 0.9rem;
+            }
+
+            button {
+                padding: 11px 16px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        /* Status message container */
+        .status-message {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .status-message.show {
+            display: block;
+        }
+
+        .status-message h2 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: #eaeaf4;
+        }
+
+        .status-message p {
+            color: #6e6e8a;
+            margin-bottom: 0;
+        }
+
+        .icon-wrap.success {
+            background: rgba(76, 175, 80, .1);
+            border-color: rgba(76, 175, 80, .2);
+        }
+
+        .icon-wrap.success svg {
+            stroke: #4CAF50;
+        }
+
+        .icon-wrap.cancelled {
+            background: rgba(255, 152, 0, .1);
+            border-color: rgba(255, 152, 0, .2);
+        }
+
+        .icon-wrap.cancelled svg {
+            stroke: #FFA726;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-glow glow-1"></div>
+    <div class="bg-glow glow-2"></div>
+
+    <div class="container">
+        <!-- Confirmation Dialog -->
+        <div id="confirmDialog">
+            <div class="icon-wrap">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
+                </svg>
+            </div>
+            <h1>Xác nhận tải xuống</h1>
+            <div class="divider"></div>
+            <p>Bạn đang tiến hành tải xuống File DNS, Xác nhận tải xuống?</p>
+            <div class="button-group">
+                <button class="btn-confirm" id="confirmBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Xác nhận
+                </button>
+                <button class="btn-cancel" id="cancelBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Hủy
+                </button>
+            </div>
+        </div>
+
+        <!-- Success Message -->
+        <div class="status-message" id="successMessage">
+            <div class="icon-wrap success">
+                <svg viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </div>
+            <h2>Đã xác nhận!</h2>
+            <p>Đang tiến hành tải xuống...</p>
+        </div>
+
+        <!-- Cancelled Message -->
+        <div class="status-message" id="cancelledMessage">
+            <div class="icon-wrap cancelled">
+                <svg viewBox="0 0 24 24">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </div>
+            <h2>Đã hủy</h2>
+            <p>Bạn đã xác nhận Hủy tải xuống File DNS vào máy</p>
+        </div>
+    </div>
+
+    <script>
+        const linkId = window.location.pathname.split('/').pop();
+
+        document.getElementById('confirmBtn').addEventListener('click', async () => {
+            const confirmBtn = document.getElementById('confirmBtn');
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<div class="spinner"></div> Đang xử lý...';
+
+            try {
+                const response = await fetch(`/api/confirm-link/${linkId}`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Show success message
+                    document.getElementById('confirmDialog').style.display = 'none';
+                    document.getElementById('successMessage').classList.add('show');
+
+                    // Redirect after a short delay
+                    setTimeout(() => {
+                        window.location.href = data.redirectUrl;
+                    }, 800);
+                } else if (response.status === 404 || response.status === 410) {
+                    // Link expired or not found
+                    window.location.href = '/expired.html';
+                } else {
+                    throw new Error('Failed to confirm link');
+                }
+            } catch (error) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Xác nhận';
+                alert('Lỗi: ' + error.message);
+            }
+        });
+
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            // Show cancelled message
+            document.getElementById('confirmDialog').style.display = 'none';
+            document.getElementById('cancelledMessage').classList.add('show');
+
+            // Allow going back after 3 seconds
+            setTimeout(() => {
+                window.history.back();
+            }, 3000);
+        });
+    </script>
+</body>
+
+</html>
