@@ -159,7 +159,7 @@ const BLOCKED_BROWSER_HTML = `<!DOCTYPE html>
   </div>
 </body></html>`;
 
-// --- Temporary Link Redirect ---
+// --- Temporary Link Confirmation Page ---
 app.get('/d/:id', (req, res) => {
   const data = readData();
   const link = data.links.find(l => l.id === req.params.id);
@@ -179,14 +179,27 @@ app.get('/d/:id', (req, res) => {
     return res.status(403).send(BLOCKED_BROWSER_HTML);
   }
 
+  // Show confirmation page instead of immediately redirecting
+  res.sendFile(path.join(__dirname, 'public', 'confirm.html'));
+});
+
+// --- Confirm Download and Mark Link as Used ---
+app.post('/api/confirm-link/:id', (req, res) => {
+  const data = readData();
+  const link = data.links.find(l => l.id === req.params.id);
+
+  if (!link || link.used) {
+    return res.status(410).json({ error: 'Link expired or already used' });
+  }
+
   // Mark as used
   link.used = true;
   link.usedAt = new Date().toISOString();
   link.usedByIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
   writeData(data);
 
-  // Redirect to GitHub
-  res.redirect(data.githubUrl);
+  // Return redirect URL
+  res.json({ success: true, redirectUrl: data.githubUrl });
 });
 
 // --- Generator (Link Phụ) ---
