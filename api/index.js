@@ -410,7 +410,7 @@ function isSafari(userAgent) {
 }
 
 const BLOCKED_BROWSER_HTML = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><meta name="theme-color" content="#07070f"><title>Vui lòng dùng Safari</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet"><style>${BLOCKED_CSS}.icon-wrap{background:rgba(124,108,240,.1);border:1px solid rgba(124,108,240,.2)}h1{background:linear-gradient(135deg,#a29bfe,#7c6cf0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.divider{background:linear-gradient(90deg,transparent,rgba(124,108,240,.4),transparent)}</style></head><body><div class="bg-glow g1"></div><div class="bg-glow g2"></div><div class="box"><div class="icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#a29bfe"/><polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" stroke="#a29bfe" fill="rgba(124,108,240,.2)"/></svg></div><h1>Vui lòng dùng Safari</h1><div class="divider"></div><p>Link này chỉ hỗ trợ trình duyệt <strong style="color:#eaeaf4;">Safari</strong>.</p><p class="hint">Vui lòng mở lại bằng Safari trên iPhone.</p></div>${PROTECTION_SCRIPT}</body></html>`;
-// --- Step 1: /d/:id → intermediate page → redirect to .mobileconfig ---
+// --- Step 1: /d/:id → show confirmation page ---
 app.get('/d/:id', async (req, res) => {
     try {
         const id = req.params.id;
@@ -431,16 +431,40 @@ app.get('/d/:id', async (req, res) => {
             return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Download</title></head><body><p>Download file</p></body></html>');
         }
 
-        // Block desktop users
+        // Block desktop users (don't consume the link)
         if (isDesktop(userAgent)) {
             return res.status(403).send(BLOCKED_DESKTOP_HTML);
         }
 
-        // Block non-Safari browsers
+        // Block non-Safari browsers (don't consume the link)
         if (!isSafari(userAgent)) {
             return res.status(403).send(BLOCKED_BROWSER_HTML);
         }
 
+        // Show confirmation page instead of immediately redirecting
+        res.send(getHtmlFile('confirm.html'));
+    } catch (err) {
+        res.status(500).send('Server error: ' + err.message);
+    }
+});
+
+// --- Confirm Download and Mark Link as Used ---
+app.post('/api/confirm-link/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const raw = await redis.get(`link:${id}`);
+
+        if (!raw) {
+            return res.status(410).json({ error: 'Link expired or already used' });
+        }
+
+        const link = typeof raw === 'string' ? JSON.parse(raw) : raw;
+
+        if (link.used) {
+            return res.status(410).json({ error: 'Link expired or already used' });
+        }
+
+        // Mark as used
         link.used = true;
         link.usedAt = new Date().toISOString();
         link.usedByIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
@@ -451,37 +475,9 @@ app.get('/d/:id', async (req, res) => {
             redis.set(`download:${id}`, 'allowed', { ex: 60 }),
         ]);
 
-        res.send(`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đang tải hồ sơ...</title>
-  <style>
-    body { background: #0a0a1a; color: #e8e8f0; font-family: -apple-system, sans-serif;
-           display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-    .box { text-align: center; }
-    .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1);
-               border-top-color: #6c5ce7; border-radius: 50%; animation: spin 0.8s linear infinite;
-               margin: 0 auto 16px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    p { color: #8888aa; font-size: 14px; }
-  </style>
-</head>
-<body>
-  <div class="box">
-    <div class="spinner"></div>
-    <p>Đang tải hồ sơ cấu hình...</p>
-  </div>
-  <script>
-    setTimeout(function() {
-      window.location.href = '/d/${id}/install.mobileconfig';
-    }, 200);
-  </script>
-</body>
-</html>`);
+        res.json({ success: true, redirectUrl: `/d/${id}/install.mobileconfig` });
     } catch (err) {
-        res.status(500).send('Server error: ' + err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 
